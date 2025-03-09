@@ -1,43 +1,14 @@
-package com.api.crud.models;
+package com.api.crud.dto;
 
-import jakarta.persistence.*;
-
-@Entity
-@Table(name = "usuarios")
-public class UserModel {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_usuario") // Asegurar que coincide con la BD
-    private int idUsuario;
-
-    @Column(name = "dni")
+public class UserDTO {
     private String dni;
-
-    @Column(name = "nombre")
     private String nombre;
-
-    @Column(name = "apellido")
     private String apellido;
-
-    @Column(name = "contacto")
     private String contacto;
-
-    @Column(name = "password")
     private String password;
-
-    @Column(name = "id_rol") // Se mantiene la anotación si el nombre en la BD es id_rol
-    private int idRol;  // Cambiado de id_rol a idRol para seguir convención de Java
+    private int idRol; // El rol se define al crear el usuario
 
     // Getters y Setters
-    public int getIdUsuario() {
-        return idUsuario;
-    }
-
-    public void setIdUsuario(int idUsuario) {
-        this.idUsuario = idUsuario;
-    }
-
     public String getDni() {
         return dni;
     }
@@ -78,11 +49,11 @@ public class UserModel {
         this.password = password;
     }
 
-    public int getIdRol() {  // Cambiado de getId_rol() a getIdRol()
+    public int getIdRol() {
         return idRol;
     }
 
-    public void setIdRol(int idRol) {  // Cambiado de setId_rol() a setIdRol()
+    public void setIdRol(int idRol) {
         this.idRol = idRol;
     }
 }
