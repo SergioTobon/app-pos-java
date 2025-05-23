@@ -1,4 +1,4 @@
 package com.api.crud.models;
 
-public class BuyModal {
+public class RolModel {
 }

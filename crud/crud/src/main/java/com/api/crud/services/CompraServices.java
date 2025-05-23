@@ -1,4 +1,4 @@
 package com.api.crud.services;
 
-public class ProductServices {
+public class CompraServices {
 }

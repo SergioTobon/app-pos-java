@@ -1,4 +1,4 @@
 package com.api.crud.models;
 
-public class RolesModel {
+public class CompraModel {
 }
