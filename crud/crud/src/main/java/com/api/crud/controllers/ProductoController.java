@@ -1,4 +1,4 @@
 package com.api.crud.controllers;
 
-public class ProductController {
+public class ProductoController {
 }

@@ -1,4 +1,4 @@
 package com.api.crud.repositories;
 
-public interface IUserRepository {
+public class ProductoRepository {
 }
