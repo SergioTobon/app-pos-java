@@ -1,8 +1,9 @@
 package com.api.crud.controllers;
 
-import com.api.crud.models.UserModel;
-import com.api.crud.services.UserServices;
+import com.api.crud.dto.RolDTO;
+import com.api.crud.services.RolServices;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -10,51 +11,63 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/usuarios")
-@CrossOrigin(origins = "*") // Permite acceso desde el frontend
-public class UserController {
+@RequestMapping("/api/roles")
+public class RolController {
 
     @Autowired
-    private UserServices userServices;
+    private RolServices rolServices;
 
+    // GET /api/roles - Obtener todos los roles
     @GetMapping
-    public List<UserModel> listarUsuarios() {
-        return userServices.listarUsuarios();
+    public ResponseEntity<List<RolDTO>> obtenerTodosLosRoles() {
+        List<RolDTO> roles = rolServices.obtenerTodosLosRoles();
+        return new ResponseEntity<>(roles, HttpStatus.OK);
     }
 
-    @GetMapping("/buscarPorId/{id}")
-    public Optional<UserModel> obtenerUsuario(@PathVariable Long id) {
-        return userServices.obtenerUsuarioPorId(id);
+    // GET /api/roles/{id} - Obtener un rol por su ID
+    @GetMapping("/{id}")
+    public ResponseEntity<RolDTO> obtenerRolPorId(@PathVariable Integer id) {
+        Optional<RolDTO> rolOptional = rolServices.obtenerRolPorId(id);
+        return rolOptional.map(rol -> new ResponseEntity<>(rol, HttpStatus.OK))
+                .orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
 
-    @GetMapping("/buscarPorDni/{dni}")
-    public Optional<UserModel> obtenerUsuarioPorDni(@PathVariable String dni) {
-        return userServices.obtenerUsuarioPorDni(dni);
+    // POST /api/roles - Crear un nuevo rol
+    @PostMapping
+    public ResponseEntity<?> guardarRol(@RequestBody RolDTO rolDTO) {
+        try {
+            RolDTO nuevoRol = rolServices.guardarRol(rolDTO);
+            return new ResponseEntity<>(nuevoRol, HttpStatus.CREATED);
+        } catch (RuntimeException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+        }
     }
 
-    @PostMapping("/crear")
-    public UserModel agregarUsuario(@RequestBody UserModel usuario) {
-        return userServices.guardarUsuario(usuario);
+    // PUT /api/roles/{id} - Actualizar un rol existente
+    @PutMapping("/{id}")
+    public ResponseEntity<?> actualizarRol(@PathVariable Integer id, @RequestBody RolDTO rolDTO) {
+        if (rolDTO.getId() == null || !rolDTO.getId().equals(id)) {
+            rolDTO.setId(id);
+        }
+        try {
+            if (rolServices.obtenerRolPorId(id).isEmpty()) {
+                return new ResponseEntity<>("Rol no encontrado para actualizar", HttpStatus.NOT_FOUND);
+            }
+            RolDTO rolActualizado = rolServices.guardarRol(rolDTO);
+            return new ResponseEntity<>(rolActualizado, HttpStatus.OK);
+        } catch (RuntimeException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+        }
     }
 
-    @PutMapping("/editar/{id}")
-    public UserModel actualizarUsuario(@PathVariable int id, @RequestBody UserModel usuario) {
-        usuario.setIdUsuario(id);
-        return userServices.guardarUsuario(usuario);
-    }
-
-    @DeleteMapping("/eliminar/{id}")
-    public ResponseEntity<String> eliminarUsuario(@PathVariable Long id) {
-        return userServices.eliminarUsuario(id);
-    }
-
-    @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody UserModel usuario) {
-        return userServices.loginUsuario(usuario.getDni(), usuario.getPassword());
-    }
-
-    @GetMapping("/all")
-    public List<UserModel> obtenerUsuarios() {
-        return userServices.obtenerTodosLosUsuarios(); // Llama al servicio
+    // DELETE /api/roles/{id} - Eliminar un rol por su ID
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> eliminarRol(@PathVariable Integer id) {
+        boolean eliminado = rolServices.eliminarRol(id);
+        if (eliminado) {
+            return new ResponseEntity<>("Rol eliminado exitosamente", HttpStatus.OK);
+        } else {
+            return new ResponseEntity<>("Rol no encontrado", HttpStatus.NOT_FOUND);
+        }
     }
 }
