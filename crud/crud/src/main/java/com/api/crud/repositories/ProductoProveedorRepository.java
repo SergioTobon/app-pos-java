@@ -1,18 +1,26 @@
+// src/main/java/com/api/crud/repositories/ProductoProveedorRepository.java
 package com.api.crud.repositories;
 
 import com.api.crud.models.ProductoProveedorModel;
-import jakarta.transaction.Transactional;
+import com.api.crud.models.ProductoProveedorId; // Asegúrate de tener esta importación
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
-import java.util.Optional;
 
 @Repository
-public interface ProductoProveedorRepository extends JpaRepository<ProductoProveedorModel, Integer> {
+public interface ProductoProveedorRepository extends JpaRepository<ProductoProveedorModel, ProductoProveedorId> {
 
-    Optional<List<ProductoProveedorModel>> findByIdProductos(Integer id);
+    // Método para encontrar relaciones Producto-Proveedor por el ID del Producto
+    // El 'id' se refiere al campo ProductoProveedorId en ProductoProveedorModel.
+    // El '_IdProducto' se refiere al campo 'idProducto' dentro de ProductoProveedorId.
+    List<ProductoProveedorModel> findById_IdProducto(Integer idProducto);
 
-    Optional<ProductoProveedorModel> findByProductoIdAndProveedor_Id(Integer idProducto, Integer idProveedor);    @Transactional
-    void deleteByIdProductos(Integer id);
+    // Método para encontrar relaciones Producto-Proveedor por el ID del Proveedor
+    List<ProductoProveedorModel> findById_IdProveedor(Integer idProveedor);
+
+    // Si también necesitas buscar por ambos IDs (aunque findById ya lo hace con ProductoProveedorId)
+    // Optional<ProductoProveedorModel> findById_IdProductoAndId_IdProveedor(Integer idProducto, Integer idProveedor);
+
+    // Otros métodos si los tienes...
 }

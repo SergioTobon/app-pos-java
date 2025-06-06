@@ -39,7 +39,6 @@ function initComprasCRUD() {
         return null;
     }
 
-    // Asegúrate de que esta función showToast esté bien implementada en tu global.js o en un script cargado antes
     function showToast(message, type = 'success') {
         const toastContainer = document.querySelector('.toast-container');
         if (!toastContainer) {
@@ -126,7 +125,6 @@ function initComprasCRUD() {
             const response = await fetch(API_PRODUCTOS_URL);
             if (!response.ok) throw new Error(`Error al cargar productos: ${response.statusText}`);
             allProducts = await response.json(); // Guardar todos los productos
-            // showToast('Productos disponibles cargados.', 'info'); // Opcional: para depuración
         } catch (error) {
             console.error('Error al cargar productos disponibles:', error);
             showToast('Error al cargar la lista de productos disponibles.', 'danger');
@@ -134,24 +132,21 @@ function initComprasCRUD() {
         }
     }
 
-    // Esta función se llama al añadir un nuevo item de producto al modal
     function populateProductSelect(selectElement, selectedProductId = null) {
         selectElement.innerHTML = '<option value="">Seleccione un producto</option>';
-        // Asegúrate de que allProducts no esté vacío antes de intentar poblar
         if (allProducts && allProducts.length > 0) {
             allProducts.forEach(producto => {
                 const option = document.createElement('option');
                 option.value = producto.id;
-                option.textContent = `${producto.nombre} (ID: ${producto.id}, Precio: ${currencyFormatter.format(producto.precioCompra)})`;
+                option.textContent = `${producto.nombre} (ID: ${producto.id}, Precio por defecto: ${currencyFormatter.format(producto.precioCompra)})`;
                 selectElement.appendChild(option);
             });
         } else {
-             // Opcional: añadir un mensaje si no hay productos
-             const option = document.createElement('option');
-             option.value = "";
-             option.textContent = "No hay productos disponibles";
-             option.disabled = true; // Deshabilitar la opción
-             selectElement.appendChild(option);
+            const option = document.createElement('option');
+            option.value = "";
+            option.textContent = "No hay productos disponibles";
+            option.disabled = true;
+            selectElement.appendChild(option);
         }
 
         if (selectedProductId) {
@@ -166,22 +161,21 @@ function initComprasCRUD() {
     function addProductoCompraItem(productoId = null, cantidad = null, precioUnitario = null) {
         const newItemDiv = document.createElement('div');
         newItemDiv.classList.add('row', 'g-2', 'mb-2', 'producto-compra-item');
-        newItemDiv.dataset.itemId = itemCounter; // Para identificar la fila
+        newItemDiv.dataset.itemId = itemCounter;
 
         newItemDiv.innerHTML = `
-            <div class="col-md-5">
+            <div class="col-md-4">
                 <label for="productoSelect_${itemCounter}" class="form-label visually-hidden">Producto</label>
                 <select class="form-select producto-select" id="productoSelect_${itemCounter}" required>
-                    </select>
+                </select>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-3">
                 <label for="cantidadProducto_${itemCounter}" class="form-label visually-hidden">Cantidad</label>
                 <input type="number" class="form-control cantidad-producto" id="cantidadProducto_${itemCounter}" placeholder="Cantidad" min="1" value="${cantidad || 1}" required>
             </div>
             <div class="col-md-3">
                 <label for="precioUnitario_${itemCounter}" class="form-label visually-hidden">Precio Unitario</label>
-                <input type="text" class="form-control precio-unitario" id="precioUnitario_${itemCounter}" placeholder="Precio Unit." readonly value="${precioUnitario !== null ? currencyFormatter.format(precioUnitario) : ''}">
-            </div>
+                <input type="text" class="form-control precio-unitario" id="precioUnitario_${itemCounter}" placeholder="Precio Unit." value="${precioUnitario !== null ? currencyFormatter.format(precioUnitario) : (productoId !== null ? currencyFormatter.format(allProducts.find(p => p.id == productoId)?.precioCompra || 0) : '0')}" required>
             <div class="col-md-2 d-flex align-items-center">
                 <button type="button" class="btn btn-danger btn-sm btn-eliminar-producto-compra">
                     <i class="bi bi-trash"></i>
@@ -191,80 +185,104 @@ function initComprasCRUD() {
         productosCompraContainer.appendChild(newItemDiv);
 
         const currentProductSelect = newItemDiv.querySelector(`#productoSelect_${itemCounter}`);
-        // *** CAMBIO CLAVE AQUÍ: Asegúrate de poblar el select del producto ***
+        const currentCantidadInput = newItemDiv.querySelector(`#cantidadProducto_${itemCounter}`);
+        const currentPrecioUnitarioInput = newItemDiv.querySelector(`#precioUnitario_${itemCounter}`);
+
         populateProductSelect(currentProductSelect, productoId);
 
-        // Si se está editando y el precioUnitario ya viene dado, asegúrate de que el select se vea bien
-        if (precioUnitario !== null && productoId !== null) {
+        // Si se está editando y se ha seleccionado un producto, pre-rellenar el precio
+        if (productoId !== null) {
             const selectedProduct = allProducts.find(p => p.id == productoId);
-            if (selectedProduct) {
-                // Aquí, el precioUnitario ya está en el input, no es necesario recalcular con precioCompra
-                // solo nos aseguramos que el select tenga el valor correcto
-                currentProductSelect.value = selectedProduct.id;
+            if (selectedProduct && precioUnitario === null) { // Solo pre-rellenar si el precio no ha sido proporcionado (ej. al editar una compra existente)
+                currentPrecioUnitarioInput.value = currencyFormatter.format(selectedProduct.precioCompra);
             }
         }
-
-
-        // Add event listeners for the new item
+        
+        // Añadir detectores de eventos para el nuevo elemento
         currentProductSelect.addEventListener('change', (e) => onProductChange(e, newItemDiv));
-        newItemDiv.querySelector(`#cantidadProducto_${itemCounter}`).addEventListener('input', () => onQuantityChange(newItemDiv));
+        currentCantidadInput.addEventListener('input', () => updateTotalCompra()); // El cambio de cantidad afecta el total
+        currentPrecioUnitarioInput.addEventListener('input', () => updateTotalCompra()); // El cambio de precio unitario afecta el total
         newItemDiv.querySelector('.btn-eliminar-producto-compra').addEventListener('click', () => removeProductoCompraItem(newItemDiv));
 
         itemCounter++;
-        updateTotalCompra(); // Actualizar el total cuando se añade un item
+        updateTotalCompra();
     }
 
     function removeProductoCompraItem(itemElement) {
         itemElement.remove();
-        updateTotalCompra(); // Actualizar el total cuando se elimina un item
-    }
-
-    function onProductChange(event, itemElement) {
-        const selectedProductId = event.target.value;
-        const precioUnitarioInput = itemElement.querySelector('.precio-unitario');
-        const producto = allProducts.find(p => p.id == selectedProductId);
-
-        if (producto) {
-            precioUnitarioInput.value = currencyFormatter.format(producto.precioCompra);
-        } else {
-            precioUnitarioInput.value = '';
-        }
         updateTotalCompra();
     }
 
-    function onQuantityChange(itemElement) {
-        updateTotalCompra();
+   // Dentro de onProductChange
+function onProductChange(event, itemElement) {
+    const selectedProductId = event.target.value;
+    const precioUnitarioInput = itemElement.querySelector('.precio-unitario');
+    const producto = allProducts.find(p => p.id == selectedProductId);
+
+    if (producto) {
+        // Rellenar con el precio por defecto del producto, o 0 si no existe
+        precioUnitarioInput.value = currencyFormatter.format(producto.precioCompra || 0);
+    } else {
+        // Limpiar o establecer a '0' si no se selecciona ningún producto
+        precioUnitarioInput.value = '0'; 
     }
+    updateTotalCompra();
+}
 
     function updateTotalCompra() {
-        let total = 0;
-        document.querySelectorAll('.producto-compra-item').forEach(itemElement => {
-            const selectedProductId = itemElement.querySelector('.producto-select').value;
-            const cantidad = parseInt(itemElement.querySelector('.cantidad-producto').value);
-            const producto = allProducts.find(p => p.id == selectedProductId);
+    let total = 0;
+    document.querySelectorAll('.producto-compra-item').forEach(itemElement => {
+        const selectedProductId = itemElement.querySelector('.producto-select').value;
+        const cantidad = parseInt(itemElement.querySelector('.cantidad-producto').value);
+        
+        const precioUnitarioText = itemElement.querySelector('.precio-unitario').value.trim(); // 1. Elimina espacios al inicio/final
+        let precioUnitario;
 
-            if (producto && !isNaN(cantidad) && cantidad > 0) {
-                total += producto.precioCompra * cantidad;
-            }
-        });
-        totalCompraDisplay.textContent = currencyFormatter.format(total);
-    }
+        // 2. Manejo de string vacío o no numérico
+        if (precioUnitarioText === '') {
+            precioUnitario = 0; // O un valor por defecto si un input vacío significa 0
+        } else {
+            // Esta expresión regular es más robusta:
+            // - /[^\d,]+/g: Elimina cualquier carácter que NO sea un dígito (\d) o una coma (,)
+            // - .replace(',', '.'): Luego, reemplaza las comas por puntos para que parseFloat funcione
+            const cleanText = precioUnitarioText.replace(/[^\d,]+/g, '').replace(',', '.');
+            precioUnitario = parseFloat(cleanText);
+        }
+        
+        // 3. Verificación final de NaN para asegurar que siempre sea un número
+        if (isNaN(precioUnitario)) {
+            console.warn(`Advertencia: El precio unitario "${precioUnitarioText}" para el producto ID ${selectedProductId} no pudo ser analizado. Estableciendo a 0.`);
+            precioUnitario = 0; // Fallback seguro para evitar NaN en cálculos
+        }
 
-    // --- Limpieza y Carga Inicial ---
+        console.log(`Parsed precioUnitario for product ID ${selectedProductId}:`, precioUnitario);
+
+        if (selectedProductId && !isNaN(cantidad) && cantidad > 0 && precioUnitario >= 0) { // precioUnitario ya se ha validado como número
+            total += precioUnitario * cantidad;
+        }
+    });
+    totalCompraDisplay.textContent = currencyFormatter.format(total);
+}
 
     function limpiarFormularioCompra() {
         compraIdInput.value = '';
-        idProveedorCompraSelect.value = ''; // Resetear el select del proveedor
-        productosCompraContainer.innerHTML = ''; // Limpiar productos dinámicos
-        itemCounter = 0; // Resetear contador de items
-        //addProductoCompraItem(); // NO LLAMES AQUI, SE LLAMARA EN EL LISTENER DESPUES DE CARGAR DATOS
-        updateTotalCompra(); // Resetear el total a 0
+        idProveedorCompraSelect.value = '';
+        productosCompraContainer.innerHTML = '';
+        itemCounter = 0;
+        updateTotalCompra();
         modalTitle.textContent = 'Agregar Nueva Compra';
-        btnGuardarCompra.classList.remove('d-none'); // Mostrar botón de guardar
-        idProveedorCompraSelect.removeAttribute('disabled'); // Habilitar proveedor
-        
+        btnGuardarCompra.classList.remove('d-none');
+        idProveedorCompraSelect.removeAttribute('disabled');
         btnAgregarProductoACart.classList.remove('d-none');
         btnAgregarProductoACart.removeAttribute('disabled');
+        
+        // Habilitar inputs para una nueva compra
+        document.querySelectorAll('.producto-compra-item').forEach(itemElement => {
+            itemElement.querySelector('.producto-select').removeAttribute('disabled');
+            itemElement.querySelector('.cantidad-producto').removeAttribute('disabled');
+            itemElement.querySelector('.precio-unitario').removeAttribute('disabled'); // Asegurarse de que este también esté habilitado
+            itemElement.querySelector('.btn-eliminar-producto-compra').classList.remove('d-none');
+        });
     }
 
     async function cargarCompras() {
@@ -303,15 +321,12 @@ function initComprasCRUD() {
 
     btnAbrirModalAgregarCompra.addEventListener('click', async () => {
         limpiarFormularioCompra();
-        await cargarProveedoresEnSelect(); // Cargar proveedores al abrir el modal
-        await cargarProductosDisponibles(); // Cargar productos disponibles
-
-        // *** CAMBIO CLAVE AQUÍ: Añadir el primer ítem de producto DESPUÉS de que allProducts esté cargado ***
-        addProductoCompraItem(); // Añadir un item de producto vacío por defecto
+        await cargarProveedoresEnSelect();
+        await cargarProductosDisponibles();
+        addProductoCompraItem(); // Añadir un elemento vacío para una nueva compra
 
         const compraModal = getCompraModalInstance();
         if (compraModal) {
-            // Reintroducimos setTimeout para manejar la condición de carrera aria-hidden
             setTimeout(() => {
                 compraModal.show();
             }, 0);
@@ -336,18 +351,20 @@ function initComprasCRUD() {
         document.querySelectorAll('.producto-compra-item').forEach(itemElement => {
             const idProducto = parseInt(itemElement.querySelector('.producto-select').value);
             const cantidad = parseInt(itemElement.querySelector('.cantidad-producto').value);
+            const precioUnitarioText = itemElement.querySelector('.precio-unitario').value;
+            const precioUnitario = parseFloat(precioUnitarioText.replace(/[COP$.]/g, '').replace(',', '.')); // Analizar el precio introducido por el usuario
 
-            if (isNaN(idProducto) || idProducto <= 0 || isNaN(cantidad) || cantidad <= 0) {
+            if (isNaN(idProducto) || idProducto <= 0 || isNaN(cantidad) || cantidad <= 0 || isNaN(precioUnitario) || precioUnitario < 0) {
                 allProductsValid = false;
-                showToast('Asegúrese de seleccionar un producto y una cantidad válida (mayor a 0) para cada ítem.', 'danger');
+                showToast('Asegúrese de seleccionar un producto, una cantidad válida (mayor a 0) y un precio unitario válido (mayor o igual a 0) para cada ítem.', 'danger');
                 return;
             }
-            productosDetalle.push({ idProducto, cantidad });
+            productosDetalle.push({ idProducto, cantidad, precioCompra: precioUnitario }); // Incluir precioCompra
         });
 
         if (!allProductsValid || productosDetalle.length === 0) {
             if (productosDetalle.length === 0) {
-                 showToast('Debe agregar al menos un producto válido a la compra.', 'danger');
+                showToast('Debe agregar al menos un producto válido a la compra.', 'danger');
             }
             return;
         }
@@ -397,7 +414,7 @@ function initComprasCRUD() {
 
                 modalTitle.textContent = `Detalles de Compra #${compra.idCompra}`;
                 compraIdInput.value = compra.idCompra;
-                btnGuardarCompra.classList.add('d-none'); // Ocultar botón de guardar en modo solo ver
+                btnGuardarCompra.classList.add('d-none'); // Ocultar el botón de guardar en modo de solo vista
 
                 idProveedorCompraSelect.setAttribute('disabled', 'true');
                 await cargarProveedoresEnSelect(compra.proveedor ? compra.proveedor.id : null);
@@ -408,7 +425,7 @@ function initComprasCRUD() {
                 productosCompraContainer.innerHTML = '';
                 itemCounter = 0;
 
-                await cargarProductosDisponibles(); // Cargar productos disponibles ANTES de poblar los detalles
+                await cargarProductosDisponibles(); // Cargar productos disponibles ANTES de rellenar los detalles
 
                 compra.detalles.forEach(detalle => {
                     addProductoCompraItem(detalle.producto.id, detalle.cantidad, detalle.precioCompra);
@@ -417,6 +434,7 @@ function initComprasCRUD() {
                     if (lastItemAdded) {
                         lastItemAdded.querySelector('.producto-select').setAttribute('disabled', 'true');
                         lastItemAdded.querySelector('.cantidad-producto').setAttribute('disabled', 'true');
+                        lastItemAdded.querySelector('.precio-unitario').setAttribute('disabled', 'true'); // Deshabilitar también el campo de precio
                         lastItemAdded.querySelector('.btn-eliminar-producto-compra').classList.add('d-none');
                     }
                 });
@@ -435,9 +453,9 @@ function initComprasCRUD() {
         }
     });
 
-    // --- Initial Load ---
+    // --- Carga Inicial ---
     cargarCompras();
 
-} // End of initComprasCRUD.
+} // Fin de initComprasCRUD.
 
 document.addEventListener('DOMContentLoaded', initComprasCRUD);

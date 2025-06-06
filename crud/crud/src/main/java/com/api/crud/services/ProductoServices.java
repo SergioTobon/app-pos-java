@@ -1,50 +1,73 @@
 package com.api.crud.services;
 
 import com.api.crud.models.ProductoModel;
+import com.api.crud.models.ProductoProveedorModel;
+import com.api.crud.models.ProductoProveedorId;
 import com.api.crud.models.ProveedorModel;
 import com.api.crud.repositories.ProductoRepository;
 import com.api.crud.repositories.ProveedorRepository;
+import com.api.crud.repositories.ProductoProveedorRepository;
 import com.api.crud.dto.ProductoDTO;
+import com.api.crud.dto.ProductoProveedorDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import jakarta.transaction.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class ProductoServices {
 
     private final ProductoRepository productoRepository;
     private final ProveedorRepository proveedorRepository;
+    private final ProductoProveedorRepository productoProveedorRepository;
 
     @Autowired
-    public ProductoServices(ProductoRepository productoRepository, ProveedorRepository proveedorRepository) {
+    public ProductoServices(ProductoRepository productoRepository, ProveedorRepository proveedorRepository,
+                            ProductoProveedorRepository productoProveedorRepository) {
         this.productoRepository = productoRepository;
         this.proveedorRepository = proveedorRepository;
+        this.productoProveedorRepository = productoProveedorRepository;
     }
 
-    // --- Métodos de Mapeo (Helper Methods) ---
-
-    // Mapea ProductoModel a ProductoDTO (para enviar al cliente)
-    private ProductoDTO mapProductoModelToDTO(ProductoModel productoModel) {
+    // --- MÉTODO DE MAPEO DESDE MODELO A DTO (Ahora público para que otros servicios puedan usarlo) ---
+    // Este método es crucial para que los ProductoDTO devueltos (incluso dentro de CompraResponseDTO)
+    // contengan la información completa y actualizada, incluyendo los proveedores asociados.
+    public ProductoDTO mapProductoModelToDTO(ProductoModel productoModel) { // <-- CAMBIO: De private a public
         ProductoDTO dto = new ProductoDTO();
         dto.setId(productoModel.getId());
         dto.setNombre(productoModel.getNombre());
         dto.setStock(productoModel.getStock());
         dto.setDescripcion(productoModel.getDescripcion());
-        dto.setPrecioCompra(productoModel.getPrecioCompra());
-        // ¡CORRECCIÓN AQUÍ! Asigna el precioVenta real del modelo al DTO
         dto.setPrecioVenta(productoModel.getPrecioVenta());
+        dto.setPrecioCompra(productoModel.getPrecioCompra()); // Mapea el precioCompra general del ProductoModel al DTO
 
-        if (productoModel.getProveedor() != null) {
-            dto.setIdProveedor(productoModel.getProveedor().getId());
-            dto.setNombreProveedor(productoModel.getProveedor().getNombre());
+        // Mapea la lista de proveedores asociados
+        if (productoModel.getProductoProveedores() != null && !productoModel.getProductoProveedores().isEmpty()) {
+            List<ProductoProveedorDTO> proveedoresAsociados = productoModel.getProductoProveedores().stream()
+                    .map(ppModel -> {
+                        ProductoProveedorDTO ppDto = new ProductoProveedorDTO();
+                        if (ppModel.getProveedor() != null) { // Asegura que el proveedor no es nulo
+                            ppDto.setIdProveedor(ppModel.getProveedor().getId());
+                            ppDto.setNombreProveedor(ppModel.getProveedor().getNombre());
+                        }
+                        if (ppModel.getProducto() != null) { // Asegura que el producto no es nulo
+                            ppDto.setIdProducto(ppModel.getProducto().getId());
+                            ppDto.setNombreProducto(ppModel.getProducto().getNombre());
+                        }
+                        ppDto.setPrecioCompraEspecifico(ppModel.getPrecio()); // El precio específico de la relación
+                        return ppDto;
+                    })
+                    .collect(Collectors.toList());
+            dto.setProveedoresAsociados(proveedoresAsociados);
+        } else {
+            dto.setProveedoresAsociados(new ArrayList<>()); // Asegura que no sea null
         }
         return dto;
     }
 
-    // Mapea ProductoDTO a ProductoModel (para guardar en la base de datos)
+    // El mapProductoDTOToModel es menos crítico ya que se usa principalmente en guardarProducto/actualizarProducto
     private ProductoModel mapProductoDTOToModel(ProductoDTO productoDTO) {
         ProductoModel model = new ProductoModel();
         if (productoDTO.getId() != null) {
@@ -53,32 +76,17 @@ public class ProductoServices {
         model.setNombre(productoDTO.getNombre());
         model.setStock(productoDTO.getStock());
         model.setDescripcion(productoDTO.getDescripcion());
+        model.setPrecioVenta(productoDTO.getPrecioVenta());
         model.setPrecioCompra(productoDTO.getPrecioCompra());
-        // ¡CORRECCIÓN AQUÍ! Asigna el precioVenta del DTO al Model
-        model.setPrecioVenta(productoDTO.getPrecioVenta()); // <-- Línea agregada
-
-        if (productoDTO.getIdProveedor() != null) {
-            Optional<ProveedorModel> proveedorOptional = proveedorRepository.findById(productoDTO.getIdProveedor());
-            if (proveedorOptional.isPresent()) {
-                model.setProveedor(proveedorOptional.get());
-            } else {
-                System.out.println("Advertencia: Proveedor con ID " + productoDTO.getIdProveedor() + " no encontrado.");
-                model.setProveedor(null);
-            }
-        }
         return model;
     }
 
-
-    // --- Métodos CRUD ---
-
+    // --- Métodos de CRUD existentes ---
     public List<ProductoDTO> obtenerTodosLosProductos() {
         List<ProductoModel> productos = productoRepository.findAll();
-        List<ProductoDTO> productosDTO = new ArrayList<>();
-        for (ProductoModel producto : productos) {
-            productosDTO.add(mapProductoModelToDTO(producto));
-        }
-        return productosDTO;
+        return productos.stream()
+                .map(this::mapProductoModelToDTO)
+                .collect(Collectors.toList());
     }
 
     public Optional<ProductoDTO> obtenerProductoPorId(Integer id) {
@@ -86,37 +94,123 @@ public class ProductoServices {
         return productoOptional.map(this::mapProductoModelToDTO);
     }
 
+    @Transactional
     public ProductoDTO guardarProducto(ProductoDTO productoDTO) {
-        ProductoModel productoModel = mapProductoDTOToModel(productoDTO);
+        ProductoModel productoModel;
+        boolean isNewProduct = productoDTO.getId() == null;
+
+        if (isNewProduct) {
+            productoModel = new ProductoModel();
+            productoModel.setStock(0);
+            productoModel.setPrecioCompra(null);
+        } else {
+            productoModel = productoRepository.findById(productoDTO.getId())
+                    .orElseThrow(() -> new RuntimeException("Producto con ID " + productoDTO.getId() + " no encontrado para actualizar."));
+            if (productoDTO.getStock() != null) {
+                productoModel.setStock(productoDTO.getStock());
+            }
+            if (productoDTO.getPrecioCompra() != null) {
+                productoModel.setPrecioCompra(productoDTO.getPrecioCompra());
+            }
+        }
+
+        productoModel.setNombre(productoDTO.getNombre());
+        productoModel.setDescripcion(productoDTO.getDescripcion());
+        productoModel.setPrecioVenta(productoDTO.getPrecioVenta());
+
+        if (!isNewProduct && productoDTO.getProveedoresAsociados() != null) {
+            if (productoModel.getProductoProveedores() == null) {
+                productoModel.setProductoProveedores(new HashSet<>());
+            }
+
+            Set<Integer> incomingProveedorIds = productoDTO.getProveedoresAsociados().stream()
+                    .map(ProductoProveedorDTO::getIdProveedor)
+                    .collect(Collectors.toSet());
+
+            productoModel.getProductoProveedores().removeIf(existingPp ->
+                    !incomingProveedorIds.contains(existingPp.getProveedor().getId())
+            );
+
+            for (ProductoProveedorDTO incomingPpDto : productoDTO.getProveedoresAsociados()) {
+                ProveedorModel proveedor = proveedorRepository.findById(incomingPpDto.getIdProveedor())
+                        .orElseThrow(() -> new RuntimeException("Proveedor con ID " + incomingPpDto.getIdProveedor() + " no encontrado para el producto " + productoDTO.getNombre()));
+
+                Optional<ProductoProveedorModel> existingRelOptional = productoModel.getProductoProveedores().stream()
+                        .filter(pp -> pp.getProveedor().getId().equals(incomingPpDto.getIdProveedor()))
+                        .findFirst();
+
+                if (existingRelOptional.isPresent()) {
+                    existingRelOptional.get().setPrecio(incomingPpDto.getPrecioCompraEspecifico());
+                } else {
+                    ProductoProveedorModel newPp = new ProductoProveedorModel();
+                    newPp.setProducto(productoModel);
+                    newPp.setProveedor(proveedor);
+                    newPp.setPrecio(incomingPpDto.getPrecioCompraEspecifico());
+                    productoModel.getProductoProveedores().add(newPp);
+                }
+            }
+        } else if (isNewProduct && productoDTO.getProveedoresAsociados() != null && !productoDTO.getProveedoresAsociados().isEmpty()){
+            System.out.println("Advertencia: Se intentaron asociar proveedores al crear un nuevo producto. Esto no se guardará en esta operación.");
+        }
+
         ProductoModel productoGuardado = productoRepository.save(productoModel);
         return mapProductoModelToDTO(productoGuardado);
     }
 
-    public Optional<ProductoDTO> actualizarProducto(Integer id, ProductoDTO productoDTO) {
-        Optional<ProductoModel> productoExistenteOptional = productoRepository.findById(id);
+    @Transactional
+    public Optional<ProductoModel> actualizarProducto(Integer id, ProductoModel productoActualizado) {
+        Optional<ProductoModel> existingProductOptional = productoRepository.findById(id);
 
-        if (productoExistenteOptional.isPresent()) {
-            ProductoModel productoExistente = productoExistenteOptional.get();
-            productoExistente.setNombre(productoDTO.getNombre());
-            productoExistente.setStock(productoDTO.getStock());
-            productoExistente.setDescripcion(productoDTO.getDescripcion());
-            productoExistente.setPrecioCompra(productoDTO.getPrecioCompra());
-            // ¡CORRECCIÓN AQUÍ! Actualiza el precioVenta del Model existente
-            productoExistente.setPrecioVenta(productoDTO.getPrecioVenta()); // <-- Línea agregada
+        if (existingProductOptional.isPresent()) {
+            ProductoModel existingProduct = existingProductOptional.get();
 
-            if (productoDTO.getIdProveedor() != null) {
-                Optional<ProveedorModel> nuevoProveedorOptional = proveedorRepository.findById(productoDTO.getIdProveedor());
-                if (nuevoProveedorOptional.isPresent()) {
-                    productoExistente.setProveedor(nuevoProveedorOptional.get());
-                } else {
-                    System.out.println("Advertencia: Nuevo Proveedor con ID " + productoDTO.getIdProveedor() + " no encontrado. El proveedor actual no será modificado.");
-                }
-            } else {
-                // Si idProveedor es null en el DTO, puedes decidir si el proveedor se desvincula o se mantiene
+            existingProduct.setNombre(productoActualizado.getNombre());
+            if (productoActualizado.getStock() != null) {
+                existingProduct.setStock(productoActualizado.getStock());
+            }
+            if (productoActualizado.getPrecioCompra() != null) {
+                existingProduct.setPrecioCompra(productoActualizado.getPrecioCompra());
             }
 
-            ProductoModel productoActualizado = productoRepository.save(productoExistente);
-            return Optional.of(mapProductoModelToDTO(productoActualizado));
+            existingProduct.setDescripcion(productoActualizado.getDescripcion());
+            existingProduct.setPrecioVenta(productoActualizado.getPrecioVenta());
+
+            Set<ProductoProveedorModel> incomingProductoProveedores = productoActualizado.getProductoProveedores();
+
+            if (incomingProductoProveedores == null) {
+                incomingProductoProveedores = new HashSet<>();
+            }
+
+            Set<ProductoProveedorId> incomingPpIds = incomingProductoProveedores.stream()
+                    .map(ProductoProveedorModel::getId)
+                    .collect(Collectors.toSet());
+
+            existingProduct.getProductoProveedores().removeIf(
+                    existingPp -> !incomingPpIds.contains(existingPp.getId())
+            );
+
+            for (ProductoProveedorModel incomingPp : incomingProductoProveedores) {
+                ProductoProveedorId currentId = new ProductoProveedorId(existingProduct.getId(), incomingPp.getProveedor().getId());
+
+                Optional<ProductoProveedorModel> existingPpOptional = existingProduct.getProductoProveedores().stream()
+                        .filter(pp -> pp.getId().equals(currentId))
+                        .findFirst();
+
+                if (existingPpOptional.isPresent()) {
+                    existingPpOptional.get().setPrecio(incomingPp.getPrecio());
+                } else {
+                    ProveedorModel proveedor = proveedorRepository.findById(incomingPp.getProveedor().getId())
+                            .orElseThrow(() -> new RuntimeException("Proveedor con ID " + incomingPp.getProveedor().getId() + " no encontrado."));
+
+                    ProductoProveedorModel newPp = new ProductoProveedorModel();
+                    newPp.setProducto(existingProduct);
+                    newPp.setProveedor(proveedor);
+                    newPp.setPrecio(incomingPp.getPrecio());
+                    existingProduct.getProductoProveedores().add(newPp);
+                }
+            }
+            return Optional.of(productoRepository.save(existingProduct));
+
         } else {
             return Optional.empty();
         }
@@ -132,10 +226,93 @@ public class ProductoServices {
 
     public List<ProductoDTO> buscarPorNombre(String nombre) {
         List<ProductoModel> productos = productoRepository.findByNombreContainingIgnoreCase(nombre);
-        List<ProductoDTO> productosDTO = new ArrayList<>();
-        for (ProductoModel producto : productos) {
-            productosDTO.add(mapProductoModelToDTO(producto));
+        return productos.stream()
+                .map(this::mapProductoModelToDTO)
+                .collect(Collectors.toList());
+    }
+
+    public Optional<Double> obtenerPrecioCompraEspecifico(Integer idProducto, Integer idProveedor) {
+        ProductoProveedorId id = new ProductoProveedorId(idProducto, idProveedor);
+        return productoProveedorRepository.findById(id)
+                .map(ProductoProveedorModel::getPrecio);
+    }
+
+    public List<ProductoProveedorDTO> obtenerProveedoresDeProducto(Integer idProducto) {
+        return productoProveedorRepository.findById_IdProducto(idProducto).stream()
+                .map(ppModel -> {
+                    ProductoProveedorDTO ppDto = new ProductoProveedorDTO();
+                    if(ppModel.getProveedor() != null) {
+                        ppDto.setIdProveedor(ppModel.getProveedor().getId());
+                        ppDto.setNombreProveedor(ppModel.getProveedor().getNombre());
+                    }
+                    if(ppModel.getProducto() != null){
+                        ppDto.setIdProducto(ppModel.getProducto().getId());
+                        ppDto.setNombreProducto(ppModel.getProducto().getNombre());
+                    }
+                    ppDto.setPrecioCompraEspecifico(ppModel.getPrecio());
+                    return ppDto;
+                })
+                .collect(Collectors.toList());
+    }
+
+    public List<ProductoDTO> obtenerProductosPorProveedor(Integer idProveedor) {
+        List<ProductoProveedorModel> relaciones = productoProveedorRepository.findById_IdProveedor(idProveedor);
+
+        return relaciones.stream()
+                .map(ppModel -> mapProductoModelToDTO(ppModel.getProducto()))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Método para registrar una compra de UN producto, actualizando su stock, precio de compra general
+     * y la relación Producto-Proveedor con su precio específico.
+     * Es llamado por CompraServices para cada detalle de compra.
+     *
+     * @param idProducto El ID del producto al que se le registrará la compra.
+     * @param idProveedor El ID del proveedor al que se le compró el producto.
+     * @param cantidadComprada La cantidad de unidades compradas.
+     * @param precioCompraUnitario El precio unitario de compra de esta transacción.
+     * @return El ProductoDTO actualizado.
+     * @throws RuntimeException si el producto o proveedor no se encuentran.
+     */
+    @Transactional
+    public ProductoDTO registrarCompraProducto(Integer idProducto, Integer idProveedor, Integer cantidadComprada, Double precioCompraUnitario) {
+        ProductoModel producto = productoRepository.findById(idProducto)
+                .orElseThrow(() -> new RuntimeException("Producto con ID " + idProducto + " no encontrado."));
+
+        ProveedorModel proveedor = proveedorRepository.findById(idProveedor)
+                .orElseThrow(() -> new RuntimeException("Proveedor con ID " + idProveedor + " no encontrado."));
+
+        // Actualizar el stock del producto
+        if (producto.getStock() == null) {
+            producto.setStock(0); // Inicializar si es nulo
         }
-        return productosDTO;
+        producto.setStock(producto.getStock() + cantidadComprada);
+
+        // Actualizar el precio de compra general del producto
+        producto.setPrecioCompra(precioCompraUnitario);
+
+        // Buscar o crear la relación Producto-Proveedor
+        ProductoProveedorId ppId = new ProductoProveedorId(idProducto, idProveedor);
+        Optional<ProductoProveedorModel> productoProveedorOptional = productoProveedorRepository.findById(ppId);
+
+        ProductoProveedorModel productoProveedor;
+        if (productoProveedorOptional.isPresent()) {
+            productoProveedor = productoProveedorOptional.get();
+            // Actualizar el precio específico del proveedor para este producto
+            productoProveedor.setPrecio(precioCompraUnitario);
+        } else {
+            // Crear nueva relación si no existe
+            productoProveedor = new ProductoProveedorModel();
+            productoProveedor.setProducto(producto);
+            productoProveedor.setProveedor(proveedor);
+            productoProveedor.setPrecio(precioCompraUnitario);
+            // Asegúrate de añadir la nueva relación a la colección del producto para que se guarde con CascadeType.ALL
+            producto.getProductoProveedores().add(productoProveedor);
+        }
+
+        // Guardar el producto (esto también guardará/actualizará la relación ProductoProveedor gracias a CascadeType.ALL)
+        ProductoModel productoActualizado = productoRepository.save(producto);
+        return mapProductoModelToDTO(productoActualizado);
     }
 }

@@ -1,17 +1,13 @@
+// src/main/java/com/api/crud/dto/DetalleCompraRequestDTO.java (Modificado)
 package com.api.crud.dto;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class DetalleCompraRequestDTO {
     private Integer idProducto;
     private Integer cantidad;
-
-    // Constructor vacío
-    public DetalleCompraRequestDTO() {}
-
-    // Constructor con parámetros
-    public DetalleCompraRequestDTO(Integer idProducto, Integer cantidad) {
-        this.idProducto = idProducto;
-        this.cantidad = cantidad;
-    }
+    @JsonProperty("precioCompra")
+    private Double precioCompra; // ¡Campo añadido! Precio al que se compra esta unidad en esta transacción
 
     // Getters y Setters
     public Integer getIdProducto() {
@@ -28,5 +24,13 @@ public class DetalleCompraRequestDTO {
 
     public void setCantidad(Integer cantidad) {
         this.cantidad = cantidad;
+    }
+
+    public Double getPrecioCompra() { // Nuevo getter
+        return precioCompra;
+    }
+
+    public void setPrecioCompra(Double precioCompra) { // Nuevo setter
+        this.precioCompra = precioCompra;
     }
 }

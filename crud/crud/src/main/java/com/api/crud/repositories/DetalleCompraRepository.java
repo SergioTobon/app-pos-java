@@ -1,4 +1,4 @@
-// Archivo: DetalleCompraRepository.java
+// src/main/java/com/api/crud/repositories/DetalleCompraRepository.java (Ejemplo)
 package com.api.crud.repositories;
 
 import com.api.crud.models.DetalleCompraModel;
@@ -9,6 +9,6 @@ import java.util.List;
 
 @Repository
 public interface DetalleCompraRepository extends JpaRepository<DetalleCompraModel, Integer> {
-    // Método para encontrar detalles de compra por el ID de la compra asociada
-    List<DetalleCompraModel> findByCompra_IdCompra(Integer idCompra); // ¡Añade esta línea!
+    // Si usas este método en tu servicio, asegúrate de que esté aquí:
+    List<DetalleCompraModel> findByCompra_IdCompra(Integer idCompra);
 }

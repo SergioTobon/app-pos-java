@@ -1,21 +1,25 @@
+// src/main/java/com/api/crud/dto/DetalleVentaRequestDTO.java
 package com.api.crud.dto;
 
 public class DetalleVentaRequestDTO {
-
     private Integer idProducto;
     private Integer cantidad;
-    private Double porcentajeGanancia; // <-- ¡Nuevo campo!
-    // No se necesita precioUnitario aquí, ya que el servicio lo calculará o lo tomará del ProductoModel
+    private Double precioUnitario;      // Campo existente, se usará si se proporciona
+    private Double porcentajeGanancia;  // ¡NUEVO CAMPO!
 
+    // Constructor vacío (necesario para Spring/Jackson)
     public DetalleVentaRequestDTO() {
     }
 
-    // Actualiza el constructor para incluir el nuevo campo
-    public DetalleVentaRequestDTO(Integer idProducto, Integer cantidad, Double porcentajeGanancia) {
+    // Constructor con todos los campos (opcional, pero útil)
+    public DetalleVentaRequestDTO(Integer idProducto, Integer cantidad, Double precioUnitario, Double porcentajeGanancia) {
         this.idProducto = idProducto;
         this.cantidad = cantidad;
-        this.porcentajeGanancia = porcentajeGanancia; // Asigna el nuevo campo
+        this.precioUnitario = precioUnitario;
+        this.porcentajeGanancia = porcentajeGanancia; // Inicializar nuevo campo
     }
+
+    // --- Getters y Setters ---
 
     public Integer getIdProducto() {
         return idProducto;
@@ -33,6 +37,15 @@ public class DetalleVentaRequestDTO {
         this.cantidad = cantidad;
     }
 
+    public Double getPrecioUnitario() {
+        return precioUnitario;
+    }
+
+    public void setPrecioUnitario(Double precioUnitario) {
+        this.precioUnitario = precioUnitario;
+    }
+
+    // --- ¡Añade estos métodos getter y setter para porcentajeGanancia! ---
     public Double getPorcentajeGanancia() {
         return porcentajeGanancia;
     }

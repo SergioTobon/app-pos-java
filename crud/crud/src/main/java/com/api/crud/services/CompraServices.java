@@ -4,15 +4,19 @@ import com.api.crud.models.CompraModel;
 import com.api.crud.models.DetalleCompraModel;
 import com.api.crud.models.ProductoModel;
 import com.api.crud.models.ProveedorModel;
+import com.api.crud.models.ProductoProveedorModel; // Se puede quitar si no se usa directamente
 import com.api.crud.repositories.CompraRepository;
 import com.api.crud.repositories.ProductoRepository;
 import com.api.crud.repositories.ProveedorRepository;
+import com.api.crud.repositories.ProductoProveedorRepository; // Se puede quitar si no se usa directamente
+
 import com.api.crud.dto.CompraRequestDTO;
 import com.api.crud.dto.CompraResponseDTO;
 import com.api.crud.dto.DetalleCompraRequestDTO;
 import com.api.crud.dto.DetalleCompraResponseDTO;
 import com.api.crud.dto.ProductoDTO;
 import com.api.crud.dto.ProveedorDTO;
+import com.api.crud.dto.ProductoProveedorDTO;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -22,21 +26,28 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class CompraServices {
 
     private final CompraRepository compraRepository;
-    private final ProductoRepository productoRepository;
+    private final ProductoRepository productoRepository; // Necesario para obtener el producto fresco para DetalleCompraModel
     private final ProveedorRepository proveedorRepository;
+    // private final ProductoProveedorRepository productoProveedorRepository; // <-- Puedes quitar esta línea si no la usas directamente
+    private final ProductoServices productoServices; // <-- ¡Inyección de ProductoServices!
 
     @Autowired
     public CompraServices(CompraRepository compraRepository,
                           ProductoRepository productoRepository,
-                          ProveedorRepository proveedorRepository) {
+                          ProveedorRepository proveedorRepository,
+                          // ProductoProveedorRepository productoProveedorRepository, // <-- Si quitas la línea de arriba, quita este parámetro
+                          ProductoServices productoServices) { // <-- ¡Añade este parámetro!
         this.compraRepository = compraRepository;
         this.productoRepository = productoRepository;
         this.proveedorRepository = proveedorRepository;
+        // this.productoProveedorRepository = productoProveedorRepository; // <-- Si quitas la línea de arriba, quita esta asignación
+        this.productoServices = productoServices; // <-- ¡Asignación!
     }
 
     // --- Métodos de Mapeo (Helper Methods) para Response DTOs ---
@@ -48,19 +59,14 @@ public class CompraServices {
         dto.setPrecioCompra(detalleModel.getPrecioCompra());
 
         if (detalleModel.getProducto() != null) {
-            ProductoDTO productoDto = new ProductoDTO();
-            productoDto.setId(detalleModel.getProducto().getId());
-            productoDto.setNombre(detalleModel.getProducto().getNombre());
-            productoDto.setDescripcion(detalleModel.getProducto().getDescripcion());
-            productoDto.setStock(detalleModel.getProducto().getStock()); // Stock actual del producto (después de la compra)
-            productoDto.setPrecioCompra(detalleModel.getProducto().getPrecioCompra());
-            productoDto.setPrecioVenta(null); // O el valor que corresponda, si existe en ProductoModel
+            // --- CAMBIO CLAVE AQUÍ: OBTENER EL PRODUCTODTO COMPLETO Y ACTUALIZADO ---
+            // Usamos productoServices.mapProductoModelToDTO para asegurar que el ProductoDTO
+            // contenga el stock actualizado, precio de compra general y la colección de proveedores asociados.
+            // Primero, aseguramos que obtenemos la versión más reciente del ProductoModel.
+            ProductoModel productoActualizadoModel = productoRepository.findById(detalleModel.getProducto().getId())
+                    .orElseThrow(() -> new RuntimeException("Producto asociado a detalle de compra no encontrado: " + detalleModel.getProducto().getId()));
 
-            if (detalleModel.getProducto().getProveedor() != null) {
-                productoDto.setIdProveedor(detalleModel.getProducto().getProveedor().getId());
-                productoDto.setNombreProveedor(detalleModel.getProducto().getProveedor().getNombre());
-            }
-            dto.setProducto(productoDto);
+            dto.setProducto(productoServices.mapProductoModelToDTO(productoActualizadoModel));
         }
         return dto;
     }
@@ -79,7 +85,7 @@ public class CompraServices {
 
     private CompraResponseDTO mapCompraModelToResponseDTO(CompraModel compraModel) {
         CompraResponseDTO dto = new CompraResponseDTO();
-        dto.setIdCompra(compraModel.getIdCompra());
+        dto.setIdCompra(compraModel.getIdCompra()); // Asumiendo que el ID en CompraModel es 'id'
         dto.setTotal(compraModel.getTotal());
         dto.setFecha(compraModel.getFecha());
 
@@ -101,11 +107,9 @@ public class CompraServices {
 
     public List<CompraResponseDTO> obtenerTodasLasCompras() {
         List<CompraModel> compras = compraRepository.findAll();
-        List<CompraResponseDTO> comprasDTO = new ArrayList<>();
-        for (CompraModel compra : compras) {
-            comprasDTO.add(mapCompraModelToResponseDTO(compra));
-        }
-        return comprasDTO;
+        return compras.stream()
+                .map(this::mapCompraModelToResponseDTO)
+                .collect(Collectors.toList());
     }
 
     public Optional<CompraResponseDTO> obtenerCompraPorId(Integer id) {
@@ -115,75 +119,72 @@ public class CompraServices {
 
     @Transactional
     public CompraResponseDTO guardarCompra(CompraRequestDTO compraRequestDTO) {
-        CompraModel compraModel = new CompraModel();
-        compraModel.setFecha(LocalDateTime.now());
-        double totalCompra = 0.0;
-
-        // 1. Buscar y asignar el Proveedor
+        // 1. Validar y obtener el Proveedor
         if (compraRequestDTO.getIdProveedor() == null) {
-            System.out.println("Error: ID de Proveedor es nulo en la solicitud de compra.");
-            // Mejor lanzar una excepción Http status 400 Bad Request
-            throw new IllegalArgumentException("ID de Proveedor es obligatorio.");
+            throw new IllegalArgumentException("El ID del proveedor es obligatorio para registrar la compra.");
         }
-        Optional<ProveedorModel> proveedorOptional = proveedorRepository.findById(compraRequestDTO.getIdProveedor());
-        if (proveedorOptional.isEmpty()) {
-            System.out.println("Error: Proveedor con ID " + compraRequestDTO.getIdProveedor() + " no encontrado.");
-            // Lanzar una excepción específica que se mapee a 404 Not Found
-            throw new RuntimeException("Proveedor no encontrado con ID: " + compraRequestDTO.getIdProveedor());
-        }
-        compraModel.setProveedor(proveedorOptional.get());
+        ProveedorModel proveedor = proveedorRepository.findById(compraRequestDTO.getIdProveedor())
+                .orElseThrow(() -> new RuntimeException("No se pudo encontrar el proveedor con ID: " + compraRequestDTO.getIdProveedor() + "."));
 
-        // 2. Procesar los detalles de la compra (productos)
-        List<DetalleCompraModel> detallesCompra = new ArrayList<>();
+        // 2. Validar productos en la solicitud
         if (compraRequestDTO.getProductos() == null || compraRequestDTO.getProductos().isEmpty()) {
-            System.out.println("Error: La lista de productos en la compra no puede estar vacía.");
             throw new IllegalArgumentException("La compra debe contener al menos un producto.");
         }
 
-        for (DetalleCompraRequestDTO detalleDTO : compraRequestDTO.getProductos()) {
-            Optional<ProductoModel> productoOptional = productoRepository.findById(detalleDTO.getIdProducto());
-            if (productoOptional.isEmpty()) {
-                System.out.println("Error: Producto con ID " + detalleDTO.getIdProducto() + " no encontrado.");
-                throw new RuntimeException("Producto no encontrado con ID: " + detalleDTO.getIdProducto());
+        // 3. Crear la entidad CompraModel
+        CompraModel compraModel = new CompraModel();
+        compraModel.setFecha(LocalDateTime.now());
+        compraModel.setProveedor(proveedor);
+
+        double totalCompra = 0.0;
+        List<DetalleCompraModel> detallesCompra = new ArrayList<>();
+
+        // 4. Procesar cada detalle de producto
+        for (DetalleCompraRequestDTO detalleRequestDTO : compraRequestDTO.getProductos()) {
+            // Validaciones de cantidad y precio para el detalle
+            if (detalleRequestDTO.getCantidad() == null || detalleRequestDTO.getCantidad() <= 0) {
+                throw new IllegalArgumentException("La cantidad comprada para el producto con ID '" + detalleRequestDTO.getIdProducto() + "' debe ser un valor positivo.");
+            }
+            if (detalleRequestDTO.getPrecioCompra() == null || detalleRequestDTO.getPrecioCompra() < 0) {
+                throw new IllegalArgumentException("El precio unitario de compra para el producto con ID '" + detalleRequestDTO.getIdProducto() + "' es inválido o negativo.");
             }
 
-            ProductoModel producto = productoOptional.get();
+            // --- CAMBIO CLAVE AQUÍ: DELEGAR ACTUALIZACIÓN DEL PRODUCTO ---
+            // Llama a ProductoServices para actualizar el stock, el precio de compra general del producto
+            // y la relación Producto-Proveedor. Este método ya persiste los cambios al ProductoModel.
+            productoServices.registrarCompraProducto(
+                    detalleRequestDTO.getIdProducto(),
+                    compraRequestDTO.getIdProveedor(), // El proveedor de la orden global
+                    detalleRequestDTO.getCantidad(),
+                    detalleRequestDTO.getPrecioCompra()
+            );
 
-            // ***** CORRECCIÓN APLICADA AQUÍ *****
-            // Se elimina la validación de stock, ya que estás COMPRANDO (añadiendo stock)
-            // if (producto.getStock() < detalleDTO.getCantidad()) {
-            //     System.out.println("Error: Stock insuficiente para el producto " + producto.getNombre() + ". Stock disponible: " + producto.getStock() + ", cantidad solicitada: " + detalleDTO.getCantidad());
-            //     throw new RuntimeException("Stock insuficiente para el producto: " + producto.getNombre());
-            // }
-            // ***** FIN CORRECCIÓN *****
+            // Obtener el ProductoModel actualizado desde el repositorio para asociarlo al DetalleCompraModel
+            // Esto es crucial para que el DetalleCompraModel tenga la referencia correcta y actualizada del Producto.
+            ProductoModel productoActualizadoParaDetalle = productoRepository.findById(detalleRequestDTO.getIdProducto())
+                    .orElseThrow(() -> new RuntimeException("Producto no encontrado después de actualización en CompraServices para detalle: " + detalleRequestDTO.getIdProducto()));
 
-            // Validar que la cantidad comprada sea válida (mayor a 0)
-            if (detalleDTO.getCantidad() <= 0) {
-                throw new IllegalArgumentException("La cantidad comprada para el producto " + producto.getNombre() + " debe ser mayor que cero.");
-            }
 
-            // Crear DetalleCompraModel
+            // Crear y configurar DetalleCompraModel
             DetalleCompraModel detalleCompraModel = new DetalleCompraModel();
-            detalleCompraModel.setProducto(producto);
-            detalleCompraModel.setCantidad(detalleDTO.getCantidad());
-            detalleCompraModel.setPrecioCompra(producto.getPrecioCompra()); // Precio del producto al momento de la compra
-            detalleCompraModel.setCompra(compraModel); // Establecer la referencia a la compra principal
+            detalleCompraModel.setProducto(productoActualizadoParaDetalle); // Asocia con el producto actualizado
+            detalleCompraModel.setCantidad(detalleRequestDTO.getCantidad());
+            detalleCompraModel.setPrecioCompra(detalleRequestDTO.getPrecioCompra()); // Precio de compra de ESTE detalle
+            detalleCompraModel.setCompra(compraModel); // Asocia con la compra principal (esto es bidireccional si CompraModel tiene el cascade)
 
             detallesCompra.add(detalleCompraModel);
-            totalCompra += (detalleDTO.getCantidad() * producto.getPrecioCompra());
 
-            // Actualizar el stock del producto: SUMAR al stock existente
-            producto.setStock(producto.getStock() + detalleDTO.getCantidad());
-            productoRepository.save(producto); // Guarda el producto con el stock actualizado
+            // Sumar al total de la compra
+            totalCompra += (detalleRequestDTO.getCantidad() * detalleRequestDTO.getPrecioCompra());
         }
 
-        compraModel.setDetalles(detallesCompra);
+        compraModel.setDetalles(detallesCompra); // Establece los detalles en la compra principal
         compraModel.setTotal(totalCompra);
 
-        // 3. Guardar la Compra (los detalles se guardan en cascada gracias a la configuración en CompraModel)
+        // 5. Guardar la Compra (los detalles se guardarán en cascada si CompraModel está configurado así)
         CompraModel compraGuardada = compraRepository.save(compraModel);
 
-        // 4. Mapear a CompraResponseDTO y devolver
+        // 6. Mapear la CompraModel guardada a CompraResponseDTO y devolver
         return mapCompraModelToResponseDTO(compraGuardada);
     }
 }

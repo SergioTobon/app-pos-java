@@ -1,40 +1,43 @@
 package com.api.crud.models;
-
 import jakarta.persistence.*;
+import java.util.Objects;
 
 @Entity
 @Table(name = "producto_proveedor")
 public class ProductoProveedorModel {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_producto_proveedor")
-    private Integer id;
+    @EmbeddedId
+    private ProductoProveedorId id;
 
-    @Column(name = "id_productos")
-    private Integer idProductos;
-
-    @Column(name = "id_proveedor")
-    private Integer idProveedor;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_productos", nullable = false, insertable = false, updatable = false)
+    @ManyToOne
+    @MapsId("idProducto")
+    @JoinColumn(name = "id_producto")
     private ProductoModel producto;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_proveedor", insertable = false, updatable = false, nullable = false)
+    @ManyToOne
+    @MapsId("idProveedor")
+    @JoinColumn(name = "id_proveedor")
     private ProveedorModel proveedor;
 
-    @Column(nullable = false)
+    @Column(name = "precio_compra")
     private Double precio;
 
-    // Getters y Setters
+    public ProductoProveedorModel() {
+        this.id = new ProductoProveedorId();
+    }
 
-    public Integer getId() {
+    public ProductoProveedorModel(ProductoModel producto, ProveedorModel proveedor, Double precio) {
+        this.producto = producto;
+        this.proveedor = proveedor;
+        this.precio = precio;
+        this.id = new ProductoProveedorId(producto.getId(), proveedor.getId());
+    }
+
+    public ProductoProveedorId getId() {
         return id;
     }
 
-    public void setId(Integer id) {
+    public void setId(ProductoProveedorId id) {
         this.id = id;
     }
 
@@ -44,6 +47,10 @@ public class ProductoProveedorModel {
 
     public void setProducto(ProductoModel producto) {
         this.producto = producto;
+        if (this.id == null) {
+            this.id = new ProductoProveedorId();
+        }
+        this.id.setIdProducto(producto != null ? producto.getId() : null);
     }
 
     public ProveedorModel getProveedor() {
@@ -52,6 +59,10 @@ public class ProductoProveedorModel {
 
     public void setProveedor(ProveedorModel proveedor) {
         this.proveedor = proveedor;
+        if (this.id == null) {
+            this.id = new ProductoProveedorId();
+        }
+        this.id.setIdProveedor(proveedor != null ? proveedor.getId() : null);
     }
 
     public Double getPrecio() {
@@ -62,19 +73,16 @@ public class ProductoProveedorModel {
         this.precio = precio;
     }
 
-    public Integer getIdProductos() {
-        return idProductos;
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        ProductoProveedorModel that = (ProductoProveedorModel) o;
+        return Objects.equals(id, that.id);
     }
 
-    public void setIdProductos(Integer idProductos) {
-        this.idProductos = idProductos;
-    }
-
-    public Integer getIdProveedor() {
-        return idProveedor;
-    }
-
-    public void setIdProveedor(Integer idProveedor) {
-        this.idProveedor = idProveedor;
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
     }
 }

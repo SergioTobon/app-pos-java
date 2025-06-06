@@ -1,14 +1,21 @@
 package com.api.crud.controllers;
 
 import com.api.crud.dto.ProductoDTO;
+import com.api.crud.dto.ProductoUpdateDto;
+import com.api.crud.dto.ProveedorAsociadoDto;
+import com.api.crud.models.ProductoModel;
+import com.api.crud.models.ProductoProveedorModel;
+import com.api.crud.models.ProveedorModel;
 import com.api.crud.services.ProductoServices;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @RestController // Indica que esta clase es un controlador REST
 @RequestMapping("/api/productos") // Define la URL base para todos los endpoints de este controlador
@@ -28,6 +35,8 @@ public class ProductoController {
         List<ProductoDTO> productos = productoService.obtenerTodosLosProductos();
         return new ResponseEntity<>(productos, HttpStatus.OK);
     }
+
+
 
     // GET: Obtener un producto por ID
     // URL: GET http://localhost:8080/api/productos/{id}
@@ -50,12 +59,41 @@ public class ProductoController {
 
     // PUT: Actualizar un producto existente
     // URL: PUT http://localhost:8080/api/productos/{id}
-    // Body: { "nombre": "Laptop Pro", "stock": 45, "descripcion": "PC portátil avanzada", "precioCompra": 850.0, "idProveedor": 1 }
-    @PutMapping("/{id}")
-    public ResponseEntity<ProductoDTO> actualizarProducto(@PathVariable Integer id, @RequestBody ProductoDTO productoDTO) {
-        Optional<ProductoDTO> productoActualizado = productoService.actualizarProducto(id, productoDTO);
-        return productoActualizado.map(dto -> new ResponseEntity<>(dto, HttpStatus.OK))
-                .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
+
+    @PutMapping(path = "/{id}")
+    public ResponseEntity<ProductoModel> actualizarProducto(@PathVariable Integer id, @RequestBody ProductoUpdateDto productoDto) {
+        // Necesitarás mapear el DTO a un ProductoModel para tu servicio,
+        // o modificar el servicio para aceptar el DTO y manejar el mapeo internamente.
+        // Para simplificar, ajustemos la firma del método del servicio:
+
+        // Crea un ProductoModel temporal a partir del DTO para pasarlo al servicio
+        ProductoModel tempProducto = new ProductoModel();
+        tempProducto.setNombre(productoDto.getNombre());
+        tempProducto.setDescripcion(productoDto.getDescripcion());
+        tempProducto.setStock(productoDto.getStock());
+        tempProducto.setPrecioVenta(productoDto.getPrecioVenta());
+
+        // Convierte ProveedorAsociadoDto a ProductoProveedorModel para el servicio
+        Set<ProductoProveedorModel> tempProductoProveedores = new HashSet<>();
+        if (productoDto.getProveedoresAsociados() != null) {
+            for (ProveedorAsociadoDto provDto : productoDto.getProveedoresAsociados()) {
+                ProductoProveedorModel pp = new ProductoProveedorModel();
+                // Para que el servicio obtenga el ProveedorModel, necesitas establecer su ID
+                ProveedorModel tempProv = new ProveedorModel();
+                tempProv.setId(provDto.getIdProveedor());
+                pp.setProveedor(tempProv);
+                pp.setPrecio(provDto.getPrecioCompraEspecifico());
+                tempProductoProveedores.add(pp);
+            }
+        }
+        tempProducto.setProductoProveedores(tempProductoProveedores); // Establece las asociaciones convertidas
+
+        Optional<ProductoModel> producto = productoService.actualizarProducto(id, tempProducto);
+        if (producto.isPresent()) {
+            return new ResponseEntity<>(producto.get(), HttpStatus.OK);
+        } else {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
     }
 
     // DELETE: Eliminar un producto

@@ -1,3 +1,4 @@
+// src/main/java/com/api/crud/services/VentaServices.java
 package com.api.crud.services;
 
 import com.api.crud.dto.*;
@@ -26,10 +27,15 @@ public class VentaServices {
     private UsuarioRepository usuarioRepository;
     @Autowired
     private ClienteRepository clienteRepository;
+    // Necesitas el ProductoProveedorRepository si el porcentaje de ganancia
+    // se calcula sobre un precio de compra específico de un proveedor.
+    // @Autowired
+    // private ProductoProveedorRepository productoProveedorRepository;
+
 
     @Transactional
     public VentaResponseDTO guardarVenta(VentaRequestDTO ventaRequestDTO) {
-        // 1. Validar Usuario y Cliente (SIN CAMBIOS)
+        // ... (Validación de Usuario y Cliente - sin cambios)
         if (ventaRequestDTO.getIdUsuario() == null) {
             throw new RuntimeException("El ID de Usuario es requerido para la venta.");
         }
@@ -48,12 +54,13 @@ public class VentaServices {
         }
         ClienteModel cliente = clienteOptional.get();
 
+
         // 2. Crear VentaModel (cabecera de la venta)
         VentaModel ventaModel = new VentaModel();
         ventaModel.setFecha(LocalDateTime.now());
         ventaModel.setUsuario(usuario);
         ventaModel.setCliente(cliente);
-        ventaModel.setTotal(0.0);
+        ventaModel.setTotal(0.0); // Inicializar total
 
         List<DetalleVentaModel> detallesVenta = new ArrayList<>();
         Double totalGeneralVenta = 0.0;
@@ -79,16 +86,22 @@ public class VentaServices {
                 throw new RuntimeException("Stock insuficiente para el producto: " + producto.getNombre() + ". Stock disponible: " + producto.getStock() + ", cantidad solicitada: " + detalleDTO.getCantidad());
             }
 
-            // --- Lógica de cálculo del precioUnitario ---
+            // --- Lógica de cálculo del precioUnitario (ACTUALIZADA) ---
             Double precioUnitario;
-            if (detalleDTO.getPorcentajeGanancia() != null) {
-                if (producto.getPrecioCompra() == null) {
-                    throw new RuntimeException("El producto " + producto.getNombre() + " no tiene un precio de compra definido para calcular la ganancia.");
+
+            if (detalleDTO.getPrecioUnitario() != null && detalleDTO.getPrecioUnitario() > 0) {
+                // Opción 1: Si se proporciona un precio unitario directo, úsalo.
+                precioUnitario = detalleDTO.getPrecioUnitario();
+            } else if (detalleDTO.getPorcentajeGanancia() != null && detalleDTO.getPorcentajeGanancia() >= 0) {
+                // Opción 2: Si se proporciona un porcentaje de ganancia, calcula el precio sobre el precio de venta base del producto.
+                if (producto.getPrecioVenta() == null || producto.getPrecioVenta() <= 0) {
+                    throw new RuntimeException("El producto " + producto.getNombre() + " no tiene un precio de venta base definido para calcular la ganancia.");
                 }
-                precioUnitario = producto.getPrecioCompra() * (1 + (detalleDTO.getPorcentajeGanancia() / 100.0));
+                precioUnitario = producto.getPrecioVenta() * (1 + (detalleDTO.getPorcentajeGanancia() / 100.0));
             } else {
-                if (producto.getPrecioVenta() == null) {
-                    throw new RuntimeException("El producto " + producto.getNombre() + " no tiene un precio de venta definido ni se proporcionó un porcentaje de ganancia.");
+                // Opción 3: Si no se proporciona ninguno de los anteriores, usa el precio de venta base del producto.
+                if (producto.getPrecioVenta() == null || producto.getPrecioVenta() <= 0) {
+                    throw new RuntimeException("El producto " + producto.getNombre() + " no tiene un precio de venta definido ni se proporcionó un precio unitario o porcentaje de ganancia.");
                 }
                 precioUnitario = producto.getPrecioVenta();
             }
@@ -102,9 +115,9 @@ public class VentaServices {
             detalleVentaModel.setCantidad(detalleDTO.getCantidad());
             detalleVentaModel.setPrecioUnitario(precioUnitario);
             detalleVentaModel.setSubtotal(subtotalDetalle);
-            detalleVentaModel.setVenta(ventaModel); // Importante: Asociar el detalle a la venta
+            detalleVentaModel.setVenta(ventaModel);
 
-            detallesVenta.add(detalleVentaModel); // Añadir a la lista temporal
+            detallesVenta.add(detalleVentaModel);
             totalGeneralVenta += subtotalDetalle;
 
             // Disminuir el stock del producto
@@ -112,10 +125,8 @@ public class VentaServices {
             productoRepository.save(producto); // Guardar el producto con el stock actualizado
         }
 
-        // --- ¡LA LÍNEA QUE FALTABA! ---
         // 4. Asignar la lista de detalles a la VentaModel
-        ventaModel.setDetalles(detallesVenta); // <-- ¡AÑADE ESTA LÍNEA AQUÍ!
-        // --- FIN DE LA LÍNEA AÑADIDA ---
+        ventaModel.setDetalles(detallesVenta);
 
         // 5. Asignar el total final a la venta
         ventaModel.setTotal(totalGeneralVenta);
@@ -127,7 +138,8 @@ public class VentaServices {
         return mapVentaModelToResponseDTO(ventaGuardada);
     }
 
-    // ... (El resto de tus métodos obtenerTodasLasVentas, obtenerVentaPorId, y los métodos de mapeo mapVentaModelToResponseDTO y mapDetalleVentaModelToResponseDTO están correctos para lo que necesitas)
+    // ... (El resto de tus métodos obtenerTodasLasVentas, obtenerVentaPorId, y los métodos de mapeo mapVentaModelToResponseDTO y mapDetalleVentaModelToResponseDTO)
+    // Estos métodos no necesitan cambios relacionados con el porcentaje de ganancia.
     public List<VentaResponseDTO> obtenerTodasLasVentas() {
         List<VentaModel> ventas = ventaRepository.findAll();
         return ventas.stream()
@@ -195,12 +207,21 @@ public class VentaServices {
             productoDTO.setNombre(detalleVentaModel.getProducto().getNombre());
             productoDTO.setStock(detalleVentaModel.getProducto().getStock());
             productoDTO.setDescripcion(detalleVentaModel.getProducto().getDescripcion());
-            productoDTO.setPrecioCompra(detalleVentaModel.getProducto().getPrecioCompra());
             productoDTO.setPrecioVenta(detalleVentaModel.getProducto().getPrecioVenta());
 
-            if (detalleVentaModel.getProducto().getProveedor() != null) {
-                productoDTO.setIdProveedor(detalleVentaModel.getProducto().getProveedor().getId());
-                productoDTO.setNombreProveedor(detalleVentaModel.getProducto().getProveedor().getNombre());
+            // Mapear los proveedores asociados
+            if (detalleVentaModel.getProducto().getProductoProveedores() != null) {
+                productoDTO.setProveedoresAsociados(
+                        detalleVentaModel.getProducto().getProductoProveedores().stream()
+                                .map(ppModel -> new ProductoProveedorDTO(
+                                        ppModel.getProveedor().getId(),
+                                        ppModel.getProveedor().getNombre(),
+                                        ppModel.getProducto().getId(),
+                                        ppModel.getProducto().getNombre(),
+                                        ppModel.getPrecio()
+                                ))
+                                .collect(Collectors.toList())
+                );
             }
             dto.setProducto(productoDTO);
         }

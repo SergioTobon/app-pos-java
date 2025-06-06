@@ -1,9 +1,9 @@
 package com.api.crud.models;
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import jakarta.persistence.*;
-import java.util.List;
-import java.util.Set;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "productos")
@@ -23,22 +23,14 @@ public class ProductoModel {
     @Column(length = 255, name = "descripcion")
     private String descripcion;
 
+
+    @Column(name = "precio_venta")
+    private Double precioVenta;
     @Column(name = "precio_compra")
     private Double precioCompra;
 
-    @Column(name = "precio_venta") // Nueva columna para el precio de venta
-    private Double precioVenta;
-
-    @ManyToOne
-    @JoinColumn(name = "id_proveedor", referencedColumnName = "id_proveedor")
-    private ProveedorModel proveedor;
-
-
-    //@OneToMany(mappedBy = "producto", cascade = CascadeType.ALL, orphanRemoval = true)
-    //private Set<ProductoProveedorModel> productoProveedoresModel;
-
-
-    // Getters y Setters
+    @OneToMany(mappedBy = "producto", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<ProductoProveedorModel> productoProveedores = new HashSet<>();
 
     public Integer getId() {
         return id;
@@ -72,6 +64,23 @@ public class ProductoModel {
         this.descripcion = descripcion;
     }
 
+    public Double getPrecioVenta() {
+        return precioVenta;
+    }
+
+    public void setPrecioVenta(Double precioVenta) {
+        this.precioVenta = precioVenta;
+    }
+
+
+    public Set<ProductoProveedorModel> getProductoProveedores() {
+        return productoProveedores;
+    }
+
+    public void setProductoProveedores(Set<ProductoProveedorModel> productoProveedores) {
+        this.productoProveedores = productoProveedores;
+    }
+
     public Double getPrecioCompra() {
         return precioCompra;
     }
@@ -80,21 +89,25 @@ public class ProductoModel {
         this.precioCompra = precioCompra;
     }
 
-    public ProveedorModel getProveedor() {
-        return proveedor;
+    public void addProveedor(ProveedorModel proveedor, Double precioCompra) {
+        ProductoProveedorModel productoProveedor = new ProductoProveedorModel(this, proveedor, precioCompra);
+        this.productoProveedores.add(productoProveedor);
+
+        proveedor.getProductoProveedores().add(productoProveedor);
     }
 
-    public void setProveedor(ProveedorModel proveedor) {
-        this.proveedor = proveedor;
-    }
+    public void removeProveedor(ProveedorModel proveedor) {
 
-    public Double getPrecioVenta() {
-        return precioVenta;
-    }
+        ProductoProveedorModel productoProveedorToRemove = this.productoProveedores.stream()
+                .filter(pp -> pp.getProveedor().equals(proveedor))
+                .findFirst()
+                .orElse(null);
 
-    public void setPrecioVenta(Double precioVenta) {
-        this.precioVenta = precioVenta;
+        if (productoProveedorToRemove != null) {
+            this.productoProveedores.remove(productoProveedorToRemove);
+
+            proveedor.getProductoProveedores().remove(productoProveedorToRemove);
+
+        }
     }
 }
-
-

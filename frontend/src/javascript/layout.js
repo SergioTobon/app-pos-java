@@ -1,4 +1,4 @@
-// FRONTEND/src/javascript/layout.js
+// frontend/src/javascript/layout.js
 
 /**
  * Genera el HTML del sidebar.
@@ -87,10 +87,12 @@ function generateNavbarHTML() {
 }
 
 /**
- * Inyecta el layout (sidebar y navbar) en el DOM.
+ * Inyecta el layout (sidebar y navbar) en el DOM y ejecuta un callback.
  * @param {string} pageTitle El título a mostrar en el navbar.
+ * @param {string} pageContentHTML El HTML del contenido específico de la página.
+ * @param {function} [callback] Una función para ejecutar después de que el contenido se haya inyectado.
  */
-function injectLayout(pageTitle = "Dashboard") {
+function injectLayout(pageTitle = "Dashboard", pageContentHTML = "", callback = null) {
     // Crear el contenedor principal del layout
     const wrapperDiv = document.createElement('div');
     wrapperDiv.className = 'd-flex';
@@ -106,31 +108,25 @@ function injectLayout(pageTitle = "Dashboard") {
     // Añadir el navbar al page-content-wrapper
     pageContentWrapperDiv.innerHTML = generateNavbarHTML();
 
-    // Insertar el contenido actual del body dentro del page-content-wrapper
-    // Primero, guardar el contenido actual del body (excluyendo scripts que se carguen al final)
-    const existingBodyContent = document.body.innerHTML;
-    document.body.innerHTML = ''; // Limpiar el body
-
-    // Añadir el wrapper al body
-    document.body.appendChild(wrapperDiv);
-
     // Obtener la referencia al div del navbar y añadir el título
     const navbarTitleElement = pageContentWrapperDiv.querySelector('#navbar-title');
     if (navbarTitleElement) {
         navbarTitleElement.textContent = pageTitle;
     }
 
-    // Insertar el pageContentWrapperDiv en el wrapper
-    wrapperDiv.appendChild(pageContentWrapperDiv);
-
     // Crear un div para el contenido específico de la página
     const pageSpecificContentDiv = document.createElement('div');
     pageSpecificContentDiv.className = 'container-fluid px-4'; // Añadir clases de Bootstrap para padding
-    pageSpecificContentDiv.innerHTML = existingBodyContent; // Restaurar el contenido original del body
+    // Set the innerHTML of pageSpecificContentDiv to the provided pageContentHTML
+    pageSpecificContentDiv.innerHTML = pageContentHTML;
 
     // Finalmente, añadir el contenido específico de la página DENTRO de page-content-wrapper, después del navbar
     pageContentWrapperDiv.appendChild(pageSpecificContentDiv);
 
+    // Limpiar el body actual antes de insertar el nuevo contenido
+    document.body.innerHTML = '';
+    document.body.appendChild(wrapperDiv); // Añadir el wrapper al body
+    wrapperDiv.appendChild(pageContentWrapperDiv); // Insertar el pageContentWrapperDiv en el wrapper
 
     // Lógica para el toggle del sidebar (anteriormente en script.js)
     const el = document.getElementById('wrapper');
@@ -146,12 +142,17 @@ function injectLayout(pageTitle = "Dashboard") {
     const currentPath = window.location.pathname;
     const sidebarLinks = document.querySelectorAll('#sidebar-wrapper .list-group-item-action');
     sidebarLinks.forEach(link => {
-        if (link.getAttribute('href') === currentPath) {
+        // Normalize paths for comparison (remove leading/trailing slashes if needed)
+        const linkHref = link.getAttribute('href').replace(/\/$/, '');
+        const currentPathClean = currentPath.replace(/\/$/, '');
+
+        if (linkHref === currentPathClean) {
             link.classList.add('active'); // Clase 'active' para Bootstrap
         }
     });
-}
 
-// Para que esta función esté disponible globalmente, no la llamamos aquí.
-// Cada HTML la llamará directamente con el título de su página.
-// Ejemplo: <script>injectLayout('Dashboard Principal');</script>
+    // Execute the callback after all content is injected
+    if (typeof callback === 'function') {
+        callback();
+    }
+}

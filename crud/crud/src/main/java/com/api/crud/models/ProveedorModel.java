@@ -1,9 +1,10 @@
-
 package com.api.crud.models;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
-import jakarta.persistence.*;
-import org.antlr.v4.runtime.misc.NotNull;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
+
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -37,6 +38,10 @@ public class ProveedorModel {
     @OneToMany(mappedBy = "proveedor", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
     private List<CompraModel> compras;
+
+    @OneToMany(mappedBy = "proveedor", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private Set<ProductoProveedorModel> productoProveedores = new HashSet<>();
 
 
     public Integer getId() {
@@ -102,4 +107,13 @@ public class ProveedorModel {
     public void setCompras(List<CompraModel> compras) {
         this.compras = compras;
     }
+
+    public Set<ProductoProveedorModel> getProductoProveedores() {
+        return productoProveedores;
+    }
+
+    public void setProductoProveedores(Set<ProductoProveedorModel> productoProveedores) {
+        this.productoProveedores = productoProveedores;
+    }
+
 }
