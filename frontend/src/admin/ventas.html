@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Ventas</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="/src/styles/global.css">
+</head>
+<body>
+    <div id="page-specific-content">
+        <div class="container-fluid px-4 py-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#ventaModal" id="btnAbrirModalAgregarVenta">
+                    <i class="bi bi-plus-circle me-2"></i>Nueva Venta
+                </button>
+            </div>
+
+            <div class="modal fade" id="ventaModal" tabindex="-1" aria-labelledby="ventaModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-xl"> 
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="ventaModalLabel">Detalles de Venta</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="ventaForm">
+                                <input type="hidden" id="ventaId">
+                                
+                                <div class="mb-3">
+                                    <label for="idUsuarioVentaSelect" class="form-label">Usuario que Realizó la Venta</label>
+                                    <select class="form-select" id="idUsuarioVentaSelect" required>
+                                        <option value="">Seleccione un usuario</option>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="idClienteVentaSelect" class="form-label">Cliente</label>
+                                    <select class="form-select" id="idClienteVentaSelect" required>
+                                        <option value="">Seleccione un cliente</option>
+                                    </select>
+                                </div>
+
+                                <h4>Productos de la Venta</h4>
+                                <div id="productosVentaContainer">
+                                    </div>
+                                <button type="button" class="btn btn-success btn-sm mb-3" id="btnAgregarProductoAVenta">
+                                    <i class="bi bi-plus-circle"></i> Añadir Otro Producto
+                                </button>
+
+                                <div class="text-end mt-3">
+                                    <strong>Total Venta: </strong> <span id="totalVentaDisplay">0.00</span>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary w-100 mt-3" id="btnGuardarVenta">Guardar Venta</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row my-5">
+                <div class="col">
+                    <div class="bg-white rounded shadow-sm p-4">
+                        <h3 class="fs-4 mb-3">Lista de Ventas</h3>
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>ID Venta</th>
+                                        <th>Fecha</th>
+                                        <th>Cliente</th>
+                                        <th>Usuario</th>
+                                        <th>Total</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ventasTableBody">
+                                    </tbody>
+                            </table>
+                        </div>
+                        <div id="noVentasMessage" class="alert alert-info text-center mt-3 d-none" role="alert">
+                            No hay ventas registradas. ¡Agrega una para empezar!
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script src="/src/javascript/layout.js"></script>
+    <script src="/src/javascript/api/ventas/ventasCrud.js"></script> 
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const pageContentDiv = document.getElementById('page-specific-content');
+            // Pasar el innerHTML del div de contenido de la página a injectLayout
+            injectLayout('Gestión de Ventas', pageContentDiv.innerHTML);
+
+            // Llamar a la función principal de tu script de ventas
+            if (typeof initVentasCRUD === 'function') {
+                initVentasCRUD();
+            } else {
+                console.error("Error: La función initVentasCRUD no está definida o no es global.");
+            }
+        });
+    </script>
+</body>
+</html>

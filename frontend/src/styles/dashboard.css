@@ -1,0 +1,52 @@
+/* /src/styles/global.css */
+
+body {
+    background-color: #f8f9fa; /* Un gris muy claro para el fondo */
+    color: #343a40; /* Un gris oscuro para el texto principal */
+    font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; /* Fuente más moderna */
+}
+
+/* Sombras y bordes sutiles para elementos principales como cards y tablas */
+.shadow-sm {
+    box-shadow: 0 .125rem .25rem rgba(0,0,0,.075) !important;
+}
+
+.card {
+    border-radius: 0.75rem; /* Bordes ligeramente más redondeados */
+    overflow: hidden; /* Asegura que el contenido respete los bordes redondeados */
+    border: none; /* Elimina el borde predeterminado de la tarjeta si no lo deseas */
+}
+
+/* Colores de texto para iconos y títulos dentro de las cards */
+.text-gray-300 {
+    color: #dee2e6 !important; /* Un gris claro para los iconos de fondo */
+}
+
+.text-gray-800 {
+    color: #343a40 !important; /* Un gris oscuro para los números importantes */
+}
+
+/* Ajustes para la tabla */
+.table th {
+    background-color: #e9ecef; /* Un gris claro para el fondo de los encabezados de la tabla */
+    color: #495057; /* Color de texto para los encabezados */
+    border-bottom: 2px solid #dee2e6; /* Borde más pronunciado en la parte inferior de los encabezados */
+}
+
+.table-hover tbody tr:hover {
+    background-color: #f1f4f8; /* Un color ligeramente más claro al pasar el ratón */
+}
+
+/* Contenedor del Toast */
+.toast-container {
+    z-index: 1080; /* Asegura que los toasts estén por encima de todo */
+}
+
+/* Pequeñas mejoras de espaciado y tamaño de fuente para títulos */
+h2.fs-3 {
+    font-weight: 600; /* Un poco más de peso para el título principal */
+}
+
+h3.fs-4 {
+    font-weight: 500;
+}

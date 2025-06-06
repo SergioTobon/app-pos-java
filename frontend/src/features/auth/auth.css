@@ -1,0 +1,53 @@
+body {
+    background: linear-gradient(to right, #6a11cb, #2575fc); /* Fondo degradado */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.custom-card {
+    max-width: 450px; /* Ancho máximo para el formulario */
+    border-radius: 1rem; /* Bordes redondeados */
+    background-color: rgba(255, 255, 255, 0.95); /* Fondo ligeramente transparente */
+    backdrop-filter: blur(5px); /* Efecto de desenfoque */
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2); /* Sombra más pronunciada */
+    border: none; /* Sin borde de la tarjeta por defecto */
+}
+
+.card-title {
+    color: #495057; /* Color del título */
+    font-weight: 600; /* Peso de la fuente */
+}
+
+.form-label {
+    font-weight: 500;
+    color: #343a40;
+}
+
+.form-control:focus {
+    border-color: #6a11cb; /* Color del borde al enfocar */
+    box-shadow: 0 0 0 0.25rem rgba(106, 17, 203, 0.25); /* Sombra al enfocar */
+}
+
+.btn-primary {
+    background-color: #6a11cb; /* Color del botón primario */
+    border-color: #6a11cb;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background-color: #5a0ebf;
+    border-color: #5a0ebf;
+    transform: translateY(-2px); /* Pequeña elevación al pasar el ratón */
+}
+
+.alert {
+    margin-top: 1rem;
+    font-size: 0.9rem;
+}
+
+/* Para centrar el contenedor usando flexbox */
+.container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
