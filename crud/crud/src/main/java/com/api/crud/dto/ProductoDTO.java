@@ -10,12 +10,14 @@ public class ProductoDTO {
     private String descripcion;
     private Double precioVenta;
     private Double precioCompra;
+    private Double porcentajeGanancia; // ¡Nuevo campo aquí!
 
     // ¡Aquí está el cambio! Ahora usa ProductoProveedorDTO
     private List<ProductoProveedorDTO> proveedoresAsociados;
 
     // Getters y Setters
-    public Integer getId() {        return id;
+    public Integer getId() {
+        return id;
     }
 
     public void setId(Integer id) {
@@ -54,20 +56,29 @@ public class ProductoDTO {
         this.precioVenta = precioVenta;
     }
 
-    // Getters y Setters para la nueva lista de DTOs
-    public List<ProductoProveedorDTO> getProveedoresAsociados() {
-        return proveedoresAsociados;
-    }
-
-    public void setProveedoresAsociados(List<ProductoProveedorDTO> proveedoresAsociados) {
-        this.proveedoresAsociados = proveedoresAsociados;
-    }
-
     public Double getPrecioCompra() {
         return precioCompra;
     }
 
     public void setPrecioCompra(Double precioCompra) {
         this.precioCompra = precioCompra;
+    }
+
+    // --- Getters y Setters para el NUEVO campo porcentajeGanancia ---
+    public Double getPorcentajeGanancia() {
+        return porcentajeGanancia;
+    }
+
+    public void setPorcentajeGanancia(Double porcentajeGanancia) {
+        this.porcentajeGanancia = porcentajeGanancia;
+    }
+
+    // Getters y Setters para la lista de DTOs de proveedores
+    public List<ProductoProveedorDTO> getProveedoresAsociados() {
+        return proveedoresAsociados;
+    }
+
+    public void setProveedoresAsociados(List<ProductoProveedorDTO> proveedoresAsociados) {
+        this.proveedoresAsociados = proveedoresAsociados;
     }
 }

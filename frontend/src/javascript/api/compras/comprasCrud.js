@@ -1,25 +1,31 @@
 // FRONTEND/src/javascript/api/compras/comprasCrud.js
 
 function initComprasCRUD() {
-    const API_COMPRAS_URL = 'http://localhost:8080/api/compras';
-    const API_PRODUCTOS_URL = 'http://localhost:8080/api/productos';
-    const API_PROVEEDORES_URL = 'http://localhost:8080/api/proveedores';
+    // --- Configuración de la API ---
+    const API_BASE_URL = 'http://localhost:8080/api';
+    const API_COMPRAS_URL = `${API_BASE_URL}/compras`;
+    const API_PRODUCTOS_URL = `${API_BASE_URL}/productos`; // Aún necesario para detalles de compra
+    const API_PROVEEDORES_URL = `${API_BASE_URL}/proveedores`; // Aún necesario para detalles de compra
 
+    // --- Referencias a elementos HTML (con verificaciones iniciales) ---
     const comprasTableBody = document.getElementById('comprasTableBody');
     const noComprasMessage = document.getElementById('noComprasMessage');
-
-    const compraForm = document.getElementById('compraForm');
-    const compraIdInput = document.getElementById('compraId'); // Hidden input for purchase ID
+    const compraForm = document.getElementById('compraForm'); // Necesario para el modal de detalles
+    const compraIdInput = document.getElementById('compraId');
     const idProveedorCompraSelect = document.getElementById('idProveedorCompraSelect');
     const productosCompraContainer = document.getElementById('productosCompraContainer');
-    const btnAgregarProductoACart = document.getElementById('btnAgregarProductoACart');
     const totalCompraDisplay = document.getElementById('totalCompraDisplay');
-    const btnGuardarCompra = document.getElementById('btnGuardarCompra');
-
     const modalTitle = document.getElementById('compraModalLabel');
-    const btnAbrirModalAgregarCompra = document.getElementById('btnAbrirModalAgregarCompra');
 
-    let allProducts = []; // Para almacenar todos los productos disponibles
+    // Aquí eliminamos 'btnAbrirModalAgregarCompra', 'btnAgregarProductoACart', 'btnGuardarCompra'
+    // de las comprobaciones críticas, ya que no los usaremos para "agregar".
+    if (!comprasTableBody || !compraForm || !idProveedorCompraSelect || !productosCompraContainer ||
+        !totalCompraDisplay || !modalTitle) {
+        console.error("Uno o más elementos HTML esenciales para la visualización de compras no fueron encontrados. Asegúrate de que los IDs en tu HTML coincidan.");
+        return; // Detiene la ejecución si los elementos críticos no están.
+    }
+
+    let allProducts = []; // Para almacenar todos los productos disponibles (útil para detalles)
 
     // Formateador de números (para moneda)
     const currencyFormatter = new Intl.NumberFormat('es-CO', {
@@ -43,7 +49,7 @@ function initComprasCRUD() {
         const toastContainer = document.querySelector('.toast-container');
         if (!toastContainer) {
             console.error('No se encontró el contenedor de toasts.');
-            alert(message);
+            alert(message); // Fallback para mostrar el mensaje
             return;
         }
 
@@ -95,12 +101,15 @@ function initComprasCRUD() {
         });
     }
 
-    // --- Carga de datos para Selects ---
+    // --- Carga de datos para Selects (aún necesaria para el modal de detalles) ---
 
     async function cargarProveedoresEnSelect(selectedId = null) {
         try {
             const response = await fetch(API_PROVEEDORES_URL);
-            if (!response.ok) throw new Error(`Error al cargar proveedores: ${response.statusText}`);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Error al cargar proveedores: ${response.status} - ${errorText}`);
+            }
             const proveedores = await response.json();
 
             idProveedorCompraSelect.innerHTML = '<option value="">Seleccione un proveedor</option>';
@@ -116,179 +125,91 @@ function initComprasCRUD() {
             }
         } catch (error) {
             console.error('Error al cargar proveedores:', error);
-            showToast('Error al cargar la lista de proveedores.', 'danger');
+            showToast(`Error al cargar la lista de proveedores: ${error.message}`, 'danger');
         }
     }
 
     async function cargarProductosDisponibles() {
         try {
             const response = await fetch(API_PRODUCTOS_URL);
-            if (!response.ok) throw new Error(`Error al cargar productos: ${response.statusText}`);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Error al cargar productos: ${response.status} - ${errorText}`);
+            }
             allProducts = await response.json(); // Guardar todos los productos
         } catch (error) {
             console.error('Error al cargar productos disponibles:', error);
-            showToast('Error al cargar la lista de productos disponibles.', 'danger');
+            showToast(`Error al cargar la lista de productos disponibles: ${error.message}`, 'danger');
             allProducts = []; // Asegura que allProducts esté vacío en caso de error
         }
     }
 
-    function populateProductSelect(selectElement, selectedProductId = null) {
-        selectElement.innerHTML = '<option value="">Seleccione un producto</option>';
-        if (allProducts && allProducts.length > 0) {
-            allProducts.forEach(producto => {
-                const option = document.createElement('option');
-                option.value = producto.id;
-                option.textContent = `${producto.nombre} (ID: ${producto.id}, Precio por defecto: ${currencyFormatter.format(producto.precioCompra)})`;
-                selectElement.appendChild(option);
-            });
-        } else {
-            const option = document.createElement('option');
-            option.value = "";
-            option.textContent = "No hay productos disponibles";
-            option.disabled = true;
-            selectElement.appendChild(option);
-        }
-
-        if (selectedProductId) {
-            selectElement.value = selectedProductId;
-        }
-    }
-
-    // --- Gestión de Items de Compra en el Formulario ---
-
-    let itemCounter = 0; // Para dar IDs únicos a los elementos dinámicos
-
-    function addProductoCompraItem(productoId = null, cantidad = null, precioUnitario = null) {
+    // Adaptamos esta función para solo mostrar, no para permitir selección/cambio.
+    function addProductoCompraItem(productoData, cantidad, precioUnitario) {
         const newItemDiv = document.createElement('div');
         newItemDiv.classList.add('row', 'g-2', 'mb-2', 'producto-compra-item');
-        newItemDiv.dataset.itemId = itemCounter;
+        // No necesitamos un itemCounter si no vamos a agregar/eliminar dinámicamente
 
         newItemDiv.innerHTML = `
             <div class="col-md-4">
-                <label for="productoSelect_${itemCounter}" class="form-label visually-hidden">Producto</label>
-                <select class="form-select producto-select" id="productoSelect_${itemCounter}" required>
-                </select>
+                <label class="form-label visually-hidden">Producto</label>
+                <input type="text" class="form-control" value="${productoData.nombre || 'N/A'}" disabled>
             </div>
             <div class="col-md-3">
-                <label for="cantidadProducto_${itemCounter}" class="form-label visually-hidden">Cantidad</label>
-                <input type="number" class="form-control cantidad-producto" id="cantidadProducto_${itemCounter}" placeholder="Cantidad" min="1" value="${cantidad || 1}" required>
+                <label class="form-label visually-hidden">Cantidad</label>
+                <input type="text" class="form-control" value="${cantidad || 0}" disabled>
             </div>
             <div class="col-md-3">
-                <label for="precioUnitario_${itemCounter}" class="form-label visually-hidden">Precio Unitario</label>
-                <input type="text" class="form-control precio-unitario" id="precioUnitario_${itemCounter}" placeholder="Precio Unit." value="${precioUnitario !== null ? currencyFormatter.format(precioUnitario) : (productoId !== null ? currencyFormatter.format(allProducts.find(p => p.id == productoId)?.precioCompra || 0) : '0')}" required>
+                <label class="form-label visually-hidden">Precio Unitario</label>
+                <input type="text" class="form-control" value="${currencyFormatter.format(precioUnitario || 0)}" disabled>
+            </div>
             <div class="col-md-2 d-flex align-items-center">
-                <button type="button" class="btn btn-danger btn-sm btn-eliminar-producto-compra">
-                    <i class="bi bi-trash"></i>
-                </button>
-            </div>
+                </div>
         `;
         productosCompraContainer.appendChild(newItemDiv);
-
-        const currentProductSelect = newItemDiv.querySelector(`#productoSelect_${itemCounter}`);
-        const currentCantidadInput = newItemDiv.querySelector(`#cantidadProducto_${itemCounter}`);
-        const currentPrecioUnitarioInput = newItemDiv.querySelector(`#precioUnitario_${itemCounter}`);
-
-        populateProductSelect(currentProductSelect, productoId);
-
-        // Si se está editando y se ha seleccionado un producto, pre-rellenar el precio
-        if (productoId !== null) {
-            const selectedProduct = allProducts.find(p => p.id == productoId);
-            if (selectedProduct && precioUnitario === null) { // Solo pre-rellenar si el precio no ha sido proporcionado (ej. al editar una compra existente)
-                currentPrecioUnitarioInput.value = currencyFormatter.format(selectedProduct.precioCompra);
-            }
-        }
-        
-        // Añadir detectores de eventos para el nuevo elemento
-        currentProductSelect.addEventListener('change', (e) => onProductChange(e, newItemDiv));
-        currentCantidadInput.addEventListener('input', () => updateTotalCompra()); // El cambio de cantidad afecta el total
-        currentPrecioUnitarioInput.addEventListener('input', () => updateTotalCompra()); // El cambio de precio unitario afecta el total
-        newItemDiv.querySelector('.btn-eliminar-producto-compra').addEventListener('click', () => removeProductoCompraItem(newItemDiv));
-
-        itemCounter++;
-        updateTotalCompra();
     }
 
-    function removeProductoCompraItem(itemElement) {
-        itemElement.remove();
-        updateTotalCompra();
-    }
-
-   // Dentro de onProductChange
-function onProductChange(event, itemElement) {
-    const selectedProductId = event.target.value;
-    const precioUnitarioInput = itemElement.querySelector('.precio-unitario');
-    const producto = allProducts.find(p => p.id == selectedProductId);
-
-    if (producto) {
-        // Rellenar con el precio por defecto del producto, o 0 si no existe
-        precioUnitarioInput.value = currencyFormatter.format(producto.precioCompra || 0);
-    } else {
-        // Limpiar o establecer a '0' si no se selecciona ningún producto
-        precioUnitarioInput.value = '0'; 
-    }
-    updateTotalCompra();
-}
-
+    // La función updateTotalCompra se mantiene para calcular el total de los detalles mostrados
     function updateTotalCompra() {
-    let total = 0;
-    document.querySelectorAll('.producto-compra-item').forEach(itemElement => {
-        const selectedProductId = itemElement.querySelector('.producto-select').value;
-        const cantidad = parseInt(itemElement.querySelector('.cantidad-producto').value);
-        
-        const precioUnitarioText = itemElement.querySelector('.precio-unitario').value.trim(); // 1. Elimina espacios al inicio/final
-        let precioUnitario;
+        let total = 0;
+        document.querySelectorAll('.producto-compra-item').forEach(itemElement => {
+            // Ya que los inputs están deshabilitados, leemos directamente el valor.
+            // Para asegurar la precisión, podrías almacenar el valor numérico en un data-attribute
+            // cuando se genera el item, o parsearlo del texto formateado.
+            // Para simplificar, asumimos que el texto formateado se puede parsear limpiándolo.
+            const cantidad = parseFloat(itemElement.querySelector('div:nth-child(2) input').value.replace(/[^\d.]/g, ''));
+            const precioUnitarioText = itemElement.querySelector('div:nth-child(3) input').value;
+            const cleanText = precioUnitarioText.replace(/[^\d,\.]+/g, '').replace(',', '.');
+            const precioUnitario = parseFloat(cleanText);
 
-        // 2. Manejo de string vacío o no numérico
-        if (precioUnitarioText === '') {
-            precioUnitario = 0; // O un valor por defecto si un input vacío significa 0
-        } else {
-            // Esta expresión regular es más robusta:
-            // - /[^\d,]+/g: Elimina cualquier carácter que NO sea un dígito (\d) o una coma (,)
-            // - .replace(',', '.'): Luego, reemplaza las comas por puntos para que parseFloat funcione
-            const cleanText = precioUnitarioText.replace(/[^\d,]+/g, '').replace(',', '.');
-            precioUnitario = parseFloat(cleanText);
-        }
-        
-        // 3. Verificación final de NaN para asegurar que siempre sea un número
-        if (isNaN(precioUnitario)) {
-            console.warn(`Advertencia: El precio unitario "${precioUnitarioText}" para el producto ID ${selectedProductId} no pudo ser analizado. Estableciendo a 0.`);
-            precioUnitario = 0; // Fallback seguro para evitar NaN en cálculos
-        }
+            if (!isNaN(cantidad) && cantidad > 0 && !isNaN(precioUnitario) && precioUnitario >= 0) {
+                total += precioUnitario * cantidad;
+            }
+        });
+        totalCompraDisplay.textContent = currencyFormatter.format(total);
+    }
 
-        console.log(`Parsed precioUnitario for product ID ${selectedProductId}:`, precioUnitario);
 
-        if (selectedProductId && !isNaN(cantidad) && cantidad > 0 && precioUnitario >= 0) { // precioUnitario ya se ha validado como número
-            total += precioUnitario * cantidad;
-        }
-    });
-    totalCompraDisplay.textContent = currencyFormatter.format(total);
-}
-
+    // La función limpiarFormularioCompra se simplifica, ya no se prepara para "agregar".
     function limpiarFormularioCompra() {
         compraIdInput.value = '';
         idProveedorCompraSelect.value = '';
         productosCompraContainer.innerHTML = '';
-        itemCounter = 0;
-        updateTotalCompra();
-        modalTitle.textContent = 'Agregar Nueva Compra';
-        btnGuardarCompra.classList.remove('d-none');
-        idProveedorCompraSelect.removeAttribute('disabled');
-        btnAgregarProductoACart.classList.remove('d-none');
-        btnAgregarProductoACart.removeAttribute('disabled');
+        totalCompraDisplay.textContent = currencyFormatter.format(0);
+        modalTitle.textContent = 'Detalles de Compra'; // Siempre mostrar "Detalles"
         
-        // Habilitar inputs para una nueva compra
-        document.querySelectorAll('.producto-compra-item').forEach(itemElement => {
-            itemElement.querySelector('.producto-select').removeAttribute('disabled');
-            itemElement.querySelector('.cantidad-producto').removeAttribute('disabled');
-            itemElement.querySelector('.precio-unitario').removeAttribute('disabled'); // Asegurarse de que este también esté habilitado
-            itemElement.querySelector('.btn-eliminar-producto-compra').classList.remove('d-none');
-        });
+        // Deshabilitar todos los inputs relevantes en el modal de detalles
+        idProveedorCompraSelect.setAttribute('disabled', 'true');
+        // Si hay otros elementos del formulario, asegúrate de deshabilitarlos también.
     }
 
     async function cargarCompras() {
         try {
             const response = await fetch(API_COMPRAS_URL);
-            if (!response.ok) throw new Error(`Error al cargar compras: ${response.statusText}`);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Error al cargar compras: ${response.status} - ${errorText}`);
+            }
             const compras = await response.json();
 
             comprasTableBody.innerHTML = '';
@@ -318,144 +239,72 @@ function onProductChange(event, itemElement) {
     }
 
     // --- Event Listeners ---
+    // ELIMINADO: Event listener para btnAbrirModalAgregarCompra.
 
-    btnAbrirModalAgregarCompra.addEventListener('click', async () => {
-        limpiarFormularioCompra();
-        await cargarProveedoresEnSelect();
-        await cargarProductosDisponibles();
-        addProductoCompraItem(); // Añadir un elemento vacío para una nueva compra
+    // ELIMINADO: Event listener para btnAgregarProductoACart.
 
-        const compraModal = getCompraModalInstance();
-        if (compraModal) {
-            setTimeout(() => {
-                compraModal.show();
-            }, 0);
-        }
-    });
-
-    btnAgregarProductoACart.addEventListener('click', () => {
-        addProductoCompraItem();
-    });
-
-    compraForm.addEventListener('submit', async (event) => {
-        event.preventDefault();
-
-        const idProveedor = parseInt(idProveedorCompraSelect.value);
-        if (isNaN(idProveedor) || idProveedor <= 0) {
-            showToast('Por favor, seleccione un proveedor válido.', 'danger');
-            return;
-        }
-
-        const productosDetalle = [];
-        let allProductsValid = true;
-        document.querySelectorAll('.producto-compra-item').forEach(itemElement => {
-            const idProducto = parseInt(itemElement.querySelector('.producto-select').value);
-            const cantidad = parseInt(itemElement.querySelector('.cantidad-producto').value);
-            const precioUnitarioText = itemElement.querySelector('.precio-unitario').value;
-            const precioUnitario = parseFloat(precioUnitarioText.replace(/[COP$.]/g, '').replace(',', '.')); // Analizar el precio introducido por el usuario
-
-            if (isNaN(idProducto) || idProducto <= 0 || isNaN(cantidad) || cantidad <= 0 || isNaN(precioUnitario) || precioUnitario < 0) {
-                allProductsValid = false;
-                showToast('Asegúrese de seleccionar un producto, una cantidad válida (mayor a 0) y un precio unitario válido (mayor o igual a 0) para cada ítem.', 'danger');
-                return;
-            }
-            productosDetalle.push({ idProducto, cantidad, precioCompra: precioUnitario }); // Incluir precioCompra
+    // ELIMINADO: Event listener para el submit de compraForm (ya no se usa para guardar).
+    // Ahora el formulario solo se usará para mostrar detalles.
+    if (compraForm) {
+        compraForm.addEventListener('submit', (event) => {
+            event.preventDefault(); // Evitar el envío del formulario si accidentalmente se presiona Enter
+            console.log('El formulario de compra está en modo de solo lectura. No se guarda nada.');
         });
+    }
 
-        if (!allProductsValid || productosDetalle.length === 0) {
-            if (productosDetalle.length === 0) {
-                showToast('Debe agregar al menos un producto válido a la compra.', 'danger');
-            }
-            return;
-        }
-
-        const compraRequestDTO = {
-            idProveedor: idProveedor,
-            productos: productosDetalle
-        };
-
-        try {
-            const response = await fetch(API_COMPRAS_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(compraRequestDTO)
-            });
-
-            if (response.status === 400) {
-                const errorBody = await response.json();
-                showToast(`Error de datos: ${errorBody.message || 'Algunos datos son inválidos.'}`, 'danger');
-                return;
-            }
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Error al guardar la compra: ${response.status} - ${errorText}`);
-            }
-
-            showToast('Compra registrada exitosamente.', 'success');
-            const compraModal = getCompraModalInstance();
-            if (compraModal) {
-                compraModal.hide();
-            }
-            cargarCompras();
-        } catch (error) {
-            console.error('Error al guardar la compra:', error);
-            showToast(`Error al guardar la compra: ${error.message}`, 'danger');
-        }
-    });
-
-    // Evento para Ver Detalles de una Compra existente
-    comprasTableBody.addEventListener('click', async (event) => {
-        if (event.target.classList.contains('btn-ver-compra') || event.target.closest('.btn-ver-compra')) {
-            const id = event.target.dataset.id || event.target.closest('.btn-ver-compra').dataset.id;
-            try {
-                const response = await fetch(`${API_COMPRAS_URL}/${id}`);
-                if (!response.ok) throw new Error(`Error al obtener detalles de compra: ${response.statusText}`);
-                const compra = await response.json();
-
-                modalTitle.textContent = `Detalles de Compra #${compra.idCompra}`;
-                compraIdInput.value = compra.idCompra;
-                btnGuardarCompra.classList.add('d-none'); // Ocultar el botón de guardar en modo de solo vista
-
-                idProveedorCompraSelect.setAttribute('disabled', 'true');
-                await cargarProveedoresEnSelect(compra.proveedor ? compra.proveedor.id : null);
-
-                btnAgregarProductoACart.classList.add('d-none');
-                btnAgregarProductoACart.setAttribute('disabled', 'true');
-
-                productosCompraContainer.innerHTML = '';
-                itemCounter = 0;
-
-                await cargarProductosDisponibles(); // Cargar productos disponibles ANTES de rellenar los detalles
-
-                compra.detalles.forEach(detalle => {
-                    addProductoCompraItem(detalle.producto.id, detalle.cantidad, detalle.precioCompra);
-
-                    const lastItemAdded = productosCompraContainer.lastElementChild;
-                    if (lastItemAdded) {
-                        lastItemAdded.querySelector('.producto-select').setAttribute('disabled', 'true');
-                        lastItemAdded.querySelector('.cantidad-producto').setAttribute('disabled', 'true');
-                        lastItemAdded.querySelector('.precio-unitario').setAttribute('disabled', 'true'); // Deshabilitar también el campo de precio
-                        lastItemAdded.querySelector('.btn-eliminar-producto-compra').classList.add('d-none');
+    // Evento para Ver Detalles de una Compra existente (se mantiene).
+    if (comprasTableBody) {
+        comprasTableBody.addEventListener('click', async (event) => {
+            if (event.target.classList.contains('btn-ver-compra') || event.target.closest('.btn-ver-compra')) {
+                const id = event.target.dataset.id || event.target.closest('.btn-ver-compra').dataset.id;
+                try {
+                    const response = await fetch(`${API_COMPRAS_URL}/${id}`);
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`Error al obtener detalles de compra: ${response.status} - ${errorText}`);
                     }
-                });
-                updateTotalCompra();
+                    const compra = await response.json();
 
-                const compraModal = getCompraModalInstance();
-                if (compraModal) {
-                    setTimeout(() => {
-                        compraModal.show();
-                    }, 0);
+                    limpiarFormularioCompra(); // Limpia y prepara el modal para solo visualización
+                    modalTitle.textContent = `Detalles de Compra #${compra.idCompra}`;
+                    compraIdInput.value = compra.idCompra;
+
+                    // Cargar proveedores y seleccionar el proveedor de la compra
+                    await cargarProveedoresEnSelect(compra.proveedor ? compra.proveedor.id : null);
+                    idProveedorCompraSelect.setAttribute('disabled', 'true'); // Asegura que esté deshabilitado
+
+                    // Cargar productos disponibles (necesario si quieres mostrar nombres completos, etc.)
+                    await cargarProductosDisponibles(); 
+
+                    productosCompraContainer.innerHTML = ''; // Limpia el contenedor de productos
+
+                    compra.detalles.forEach(detalle => {
+                        // Encuentra el producto para obtener su nombre completo
+                        const producto = allProducts.find(p => p.id === detalle.producto.id) || detalle.producto;
+                        addProductoCompraItem(producto, detalle.cantidad, detalle.precioCompra); 
+                    });
+                    updateTotalCompra();
+
+                    const compraModal = getCompraModalInstance();
+                    if (compraModal) {
+                        setTimeout(() => {
+                            compraModal.show();
+                        }, 0);
+                    }
+                } catch (error) {
+                    console.error('Error al cargar detalles de compra:', error);
+                    showToast(`Error al cargar detalles de la compra: ${error.message}`, 'danger');
                 }
-            } catch (error) {
-                console.error('Error al cargar detalles de compra:', error);
-                showToast('Error al cargar detalles de la compra.', 'danger');
             }
-        }
-    });
+        });
+    } else {
+        console.warn("Elemento 'comprasTableBody' no encontrado. La funcionalidad de ver detalles de compras no estará disponible.");
+    }
 
     // --- Carga Inicial ---
     cargarCompras();
 
 } // Fin de initComprasCRUD.
 
+// Asegúrate de que initComprasCRUD se ejecute una vez que el DOM esté completamente cargado.
 document.addEventListener('DOMContentLoaded', initComprasCRUD);

@@ -11,7 +11,7 @@
 </head>
 <body>
     <div id="page-specific-content">
-        <div class="container-fluid px-4 py-4">
+        <div id="productosListSection" class="container-fluid px-4 py-4">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#productoModal" id="btnAbrirModalAgregarProducto">
                     <i class="bi bi-plus-circle me-2"></i>Agregar Producto
@@ -65,7 +65,7 @@
                                     <input type="number" step="0.01" class="form-control" id="porcentajeGanancia" value="20">
                                 </div>
                                 <div class="mb-3">
-                                    <label for="idProveedorProductoSelect" class="form-label">Proveedor</label>
+                                    <label for="idProveedorProductoSelect" class="form-label">Proveedor Principal</label>
                                     <select class="form-select" id="idProveedorProductoSelect">
                                         <option value="">Seleccione un proveedor</option>
                                     </select>
@@ -91,7 +91,7 @@
                                         <th scope="col">Descripción</th>
                                         <th scope="col">P. Compra</th>
                                         <th scope="col">P. Venta</th>
-                                        <th scope="col">Proveedor</th>
+                                        <th scope="col">Proveedor Principal</th>
                                         <th scope="col">Acciones</th>
                                     </tr>
                                 </thead>
@@ -106,19 +106,97 @@
                 </div>
             </div>
         </div>
+
+        <div id="productDetailSection" class="container-fluid px-4 py-4 d-none">
+            <button class="btn btn-secondary mb-4" id="btnBackToProductList">
+                <i class="bi bi-arrow-left me-2"></i>Volver a la Lista de Productos
+            </button>
+            <h2 class="fs-3 mb-4 text-primary" id="productDetailTitle">Detalles del Producto</h2>
+
+            <div class="row g-4 mb-4">
+                <div class="col-lg-6">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-primary text-white">Información General</div>
+                        <div class="card-body">
+                            <p><strong>Nombre:</strong> <span id="detalleNombre"></span></p>
+                            <p><strong>Descripción:</strong> <span id="detalleDescripcion"></span></p>
+                            <p><strong>Stock Actual:</strong> <span id="detalleStock"></span></p>
+                            <p><strong>Precio de Compra:</strong> <span id="detallePrecioCompra"></span></p>
+                            <p><strong>Precio de Venta:</strong> <span id="detallePrecioVenta"></span></p>
+                            <p><strong>Proveedor Principal:</strong> <span id="detalleProveedorPrincipal"></span></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-info text-white">Proveedores del Producto</div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Nombre</th>
+                                            <th>Contacto</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="proveedoresProductoTableBody">
+                                        </tbody>
+                                </table>
+                            </div>
+                            <div id="noProveedoresProductoMessage" class="alert alert-info text-center mt-3 d-none" role="alert">
+                                Este producto no tiene proveedores asociados.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </div>
+
+        <div class="modal fade" id="proveedoresProductoModal" tabindex="-1" aria-labelledby="proveedoresProductoModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="proveedoresProductoModalLabel">Proveedores para: <span id="modalProductName"></span></h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Nombre</th>
+                                        <th>Contacto</th>
+                                        <th>Email</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="modalProveedoresTableBody">
+                                    </tbody>
+                            </table>
+                        </div>
+                        <div id="noModalProveedoresMessage" class="alert alert-info text-center mt-3 d-none">
+                            No hay proveedores registrados para este producto.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
+
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer"></div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-    
     <script src="/src/javascript/layout.js"></script>
-    
-    <script src="/src/javascript/api/productos/productosCrud.js"></script> 
-    
+    <script src="/src/javascript/api/productos/productosCrud.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const pageContentDiv = document.getElementById('page-specific-content');
-            // Pasar el innerHTML del div de contenido de la página y el callback
             injectLayout('Gestión de Productos', pageContentDiv.innerHTML, function() {
-                // Este código se ejecutará DESPUÉS de que injectLayout haya terminado de insertar el contenido.
                 if (typeof initProductosCRUD === 'function') {
                     initProductosCRUD();
                 } else {

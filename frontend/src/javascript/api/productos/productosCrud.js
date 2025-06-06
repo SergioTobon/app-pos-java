@@ -3,7 +3,10 @@
 function initProductosCRUD() {
 
     const API_BASE_URL = 'http://localhost:8080/api/productos';
-    const API_PROVEEDORES_URL = 'http://localhost:8080/api/proveedores';
+    const API_PROVEEDORES_URL = 'http://localhost:8080/api/proveedores'; // Base para todos los proveedores
+    // Nueva URL para obtener proveedores por producto (necesitarás este endpoint en el backend)
+    const API_PRODUCTO_PROVEEDORES_URL = (productId) => `${API_BASE_URL}/${productId}/proveedores`;
+
 
     const productosTableBody = document.getElementById('productosTableBody');
 
@@ -17,8 +20,7 @@ function initProductosCRUD() {
     const idProveedorProductoSelect = document.getElementById('idProveedorProductoSelect');
 
     // Referencias a los contenedores de los campos para ocultar/mostrar
-    // Asegúrate de que estos selectores (.closest('.mb-3')) coincidan con la estructura HTML de tu modal
-    const stockGroup = stockProductoInput.closest('.mb-3'); 
+    const stockGroup = stockProductoInput.closest('.mb-3');
     const precioCompraGroup = precioCompraProductoInput.closest('.mb-3');
     const porcentajeGananciaGroup = porcentajeGananciaInput.closest('.mb-3');
     const proveedorGroup = idProveedorProductoSelect.closest('.mb-3');
@@ -28,16 +30,28 @@ function initProductosCRUD() {
     const btnAbrirModalAgregarProducto = document.getElementById('btnAbrirModalAgregarProducto');
     const noProductosMessage = document.getElementById('noProductosMessage');
 
-    // --- NUEVOS ELEMENTOS PARA EL MODAL DE DETALLE ---
-    const productoDetalleModalElement = document.getElementById('productoDetalleModal');
-    const productoDetalleModalLabel = document.getElementById('productoDetalleModalLabel'); // Cambiado de productoDetalleModalTitle
+    // --- ELEMENTOS PARA LA NUEVA SECCIÓN DE DETALLE DE PRODUCTO ---
+    const productosListSection = document.getElementById('productosListSection');
+    const productDetailSection = document.getElementById('productDetailSection');
+    const btnBackToProductList = document.getElementById('btnBackToProductList');
+
+    const productDetailTitle = document.getElementById('productDetailTitle');
     const detalleNombre = document.getElementById('detalleNombre');
     const detalleStock = document.getElementById('detalleStock');
     const detalleDescripcion = document.getElementById('detalleDescripcion');
     const detallePrecioCompra = document.getElementById('detallePrecioCompra');
     const detallePrecioVenta = document.getElementById('detallePrecioVenta');
-    const detalleProveedor = document.getElementById('detalleProveedor');
-    // REMOVIDO: const detalleEstado = document.getElementById('detalleEstado'); // Este ya no es necesario
+    const detalleProveedorPrincipal = document.getElementById('detalleProveedorPrincipal'); // Renombrado para claridad
+
+    const proveedoresProductoTableBody = document.getElementById('proveedoresProductoTableBody');
+    const noProveedoresProductoMessage = document.getElementById('noProveedoresProductoMessage');
+
+    // --- NUEVOS ELEMENTOS PARA EL MODAL DE PROVEEDORES (dentro de detalle) ---
+    const proveedoresProductoModalElement = document.getElementById('proveedoresProductoModal');
+    const proveedoresProductoModalLabel = document.getElementById('proveedoresProductoModalLabel');
+    const modalProductName = document.getElementById('modalProductName');
+    const modalProveedoresTableBody = document.getElementById('modalProveedoresTableBody');
+    const noModalProveedoresMessage = document.getElementById('noModalProveedoresMessage');
     // --- FIN NUEVOS ELEMENTOS ---
 
     // --- NUEVOS ELEMENTOS PARA FILTRO Y BÚSQUEDA ---
@@ -52,9 +66,9 @@ function initProductosCRUD() {
     console.log('noProductosMessage obtenido:', document.getElementById('noProductosMessage'));
 
     // Creador de formato de números para precios
-    const priceFormatter = new Intl.NumberFormat('es-CO', { // Usamos 'es-CO' para el formato colombiano (miles con punto, decimales con coma)
+    const priceFormatter = new Intl.NumberFormat('es-CO', {
         style: 'currency',
-        currency: 'COP', // O la moneda que uses
+        currency: 'COP',
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });
@@ -73,13 +87,18 @@ function initProductosCRUD() {
     }
 
     // Helper function to get the Bootstrap modal instance for product DETAIL
-    function getProductoDetalleModalInstance() {
-        if (productoDetalleModalElement) {
-            return bootstrap.Modal.getInstance(productoDetalleModalElement) || new bootstrap.Modal(productoDetalleModalElement);
+    // REMOVIDO: Ya no usamos este modal para el detalle, sino una sección de la misma página.
+    // function getProductoDetalleModalInstance() { ... }
+
+    // Helper function to get the Bootstrap modal instance for PROVIDER LIST
+    function getProveedoresProductoModalInstance() {
+        if (proveedoresProductoModalElement) {
+            return bootstrap.Modal.getInstance(proveedoresProductoModalElement) || new bootstrap.Modal(proveedoresProductoModalElement);
         }
-        console.error("El elemento del modal #productoDetalleModal no fue encontrado.");
+        console.error("El elemento del modal #proveedoresProductoModal no fue encontrado.");
         return null;
     }
+
 
     function showToast(message, type = 'success') {
         console.log(`Mensaje (${type}): ${message}`);
@@ -110,7 +129,7 @@ function initProductosCRUD() {
         });
     }
 
-    // Carga los proveedores en el select para asociarlos a un producto
+    // Carga los proveedores en el select para asociarlos a un producto (para el modal de edición)
     async function cargarProveedoresEnSelect() {
         try {
             const response = await fetch(API_PROVEEDORES_URL, {
@@ -179,6 +198,12 @@ function initProductosCRUD() {
             console.log('>>> Productos encontrados. Ocultando mensaje y renderizando tabla.');
             noProductosMessage.classList.add('d-none');
             productos.forEach(producto => {
+                let porcentajeGananciaDisplay = 'N/A';
+                if (producto.precioCompra > 0 && producto.precioVenta !== null) {
+                    const calculatedPorcentaje = ((producto.precioVenta / producto.precioCompra) - 1) * 100;
+                    porcentajeGananciaDisplay = `${calculatedPorcentaje.toFixed(2)}%`;
+                }
+
                 const row = productosTableBody.insertRow();
                 row.classList.add('clickable-row');
                 row.dataset.id = producto.id;
@@ -190,6 +215,7 @@ function initProductosCRUD() {
                     <td>${producto.descripcion || ''}</td>
                     <td>${producto.precioCompra ? priceFormatter.format(producto.precioCompra) : ''}</td>
                     <td>${producto.precioVenta ? priceFormatter.format(producto.precioVenta) : ''}</td>
+                    <td>${producto.proveedorPrincipal ? producto.proveedorPrincipal.nombre : 'N/A'}</td>
                     <td>
                         <button class="btn btn-sm btn-info btn-editar-producto me-2" data-id="${producto.id}">
                             <i class="bi bi-pencil-square"></i> Editar
@@ -246,11 +272,9 @@ function initProductosCRUD() {
             const productos = await response.json();
             console.log('>>> Datos de productos recibidos y parseados (en cargarProductos):', productos);
 
-            // Almacenar todos los productos obtenidos
-            allProductsData = productos;
+            allProductsData = productos; // Almacenar todos los productos obtenidos
 
-            // Aplicar filtros y búsqueda iniciales
-            aplicarFiltrosYBusqueda();
+            aplicarFiltrosYBusqueda(); // Aplicar filtros y búsqueda iniciales
 
         } catch (error) {
             console.error('>>> Error CRÍTICO al cargar productos del catálogo:', error);
@@ -261,10 +285,94 @@ function initProductosCRUD() {
         }
     }
 
+    // --- NUEVA LÓGICA: CARGAR Y MOSTRAR DETALLES DE PRODUCTO ---
+    async function showProductDetail(productId) {
+        try {
+            const productResponse = await fetch(`${API_BASE_URL}/${productId}`, {
+                headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+            });
+            if (!productResponse.ok) {
+                const errorText = await productResponse.text();
+                throw new Error(`Error al obtener detalles del producto: ${productResponse.status} - ${errorText}`);
+            }
+            const product = await productResponse.json();
+
+            // Rellenar la sección de detalle del producto
+            productDetailTitle.textContent = `Detalles de ${product.nombre}`;
+            detalleNombre.textContent = product.nombre;
+            detalleStock.textContent = product.stock;
+            detalleDescripcion.textContent = product.descripcion || 'N/A';
+            detallePrecioCompra.textContent = product.precioCompra ? priceFormatter.format(product.precioCompra) : 'N/A';
+            detallePrecioVenta.textContent = product.precioVenta ? priceFormatter.format(product.precioVenta) : 'N/A';
+            detalleProveedorPrincipal.textContent = product.proveedorPrincipal ? product.proveedorPrincipal.nombre : 'N/A';
+
+            // Cargar y mostrar proveedores del producto (puede ser el mismo endpoint de todos los proveedores
+            // o uno específico de producto a proveedor).
+            // Para este ejemplo, asumimos que el endpoint devuelve un array de objetos de proveedor
+            await loadProveedoresForProductTable(productId);
+
+            // Ocultar la lista de productos y mostrar la sección de detalle
+            productosListSection.classList.add('d-none');
+            productDetailSection.classList.remove('d-none');
+
+        } catch (error) {
+            console.error('Error al mostrar detalles del producto:', error);
+            showToast(`Error al cargar los detalles del producto: ${error.message}`, 'danger');
+            // Opcional: Volver a la lista si hay un error grave
+            productosListSection.classList.remove('d-none');
+            productDetailSection.classList.add('d-none');
+        }
+    }
+
+    async function loadProveedoresForProductTable(productId) {
+        if (!proveedoresProductoTableBody) {
+            console.error('ERROR: #proveedoresProductoTableBody no fue encontrado para cargar proveedores.');
+            return;
+        }
+        proveedoresProductoTableBody.innerHTML = '';
+        noProveedoresProductoMessage.classList.add('d-none');
+
+        try {
+            // Este endpoint es crucial. Necesitarás uno en tu backend que devuelva
+            // una lista de proveedores asociados a un producto específico.
+            // Ejemplo: GET /api/productos/{productId}/proveedores
+            const response = await fetch(API_PRODUCTO_PROVEEDORES_URL(productId), {
+                headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Error al cargar proveedores del producto: ${response.status} - ${errorText}`);
+            }
+
+            const proveedores = await response.json(); // Se espera un array de proveedores
+
+            if (proveedores.length === 0) {
+                noProveedoresProductoMessage.classList.remove('d-none');
+            } else {
+                proveedores.forEach(proveedor => {
+                    const row = proveedoresProductoTableBody.insertRow();
+                    row.innerHTML = `
+                        <td>${proveedor.id}</td>
+                        <td>${proveedor.nombre}</td>
+                        <td>${proveedor.contacto || 'N/A'}</td>
+                    `;
+                });
+            }
+        } catch (error) {
+            console.error('Error al cargar proveedores para el producto:', error);
+            showToast(`Error al cargar proveedores del producto: ${error.message}`, 'danger');
+            noProveedoresProductoMessage.classList.remove('d-none');
+            noProveedoresProductoMessage.textContent = 'Error al cargar proveedores. Inténtalo de nuevo más tarde.';
+        }
+    }
+
+    // --- MANEJO DE EVENTOS ---
+
     // Event listener para abrir el modal de agregar producto
     btnAbrirModalAgregarProducto.addEventListener('click', () => {
         limpiarFormulario(); // Esto ahora oculta los campos no deseados al crear
-        // No es necesario cargar proveedores si el campo no se va a mostrar
+        porcentajeGananciaInput.value = '20'; // Set default percentage for new products
         const productoModal = getProductoModalInstance();
         if (productoModal) {
             productoModal.show();
@@ -279,7 +387,6 @@ function initProductosCRUD() {
         const nombre = nombreProductoInput.value;
         const descripcion = descripcionProductoInput.value;
 
-        // Validaciones básicas para nombre
         if (!nombre.trim()) {
             showToast('Por favor, ingrese un nombre para el producto.', 'danger');
             return;
@@ -287,13 +394,13 @@ function initProductosCRUD() {
 
         let productoData = {
             nombre: nombre.trim(),
-            descripcion: descripcion.trim() || null // Envía null si está vacío
+            descripcion: descripcion.trim() || null
         };
 
         try {
             let response;
             if (id) {
-                // Es una ACTUALIZACIÓN (PUT): se envían todos los campos y se validan
+                // Es una ACTUALIZACIÓN (PUT)
                 const precioCompra = parseFloat(precioCompraProductoInput.value);
                 const porcentajeGanancia = parseFloat(porcentajeGananciaInput.value);
                 const stockInicial = parseInt(stockProductoInput.value);
@@ -319,7 +426,7 @@ function initProductosCRUD() {
                 const precioVentaCalculado = precioCompra * (1 + (porcentajeGanancia / 100));
 
                 productoData = {
-                    ...productoData, // Mantener nombre y descripción
+                    ...productoData,
                     stock: stockInicial,
                     precioCompra: precioCompra,
                     precioVenta: precioVentaCalculado,
@@ -340,14 +447,14 @@ function initProductosCRUD() {
                 }
                 showToast('Producto del catálogo actualizado exitosamente.');
             } else {
-                // Es una CREACIÓN (POST): Solo se envían nombre y descripción
+                // Es una CREACIÓN (POST)
                 response = await fetch(API_BASE_URL, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${AUTH_TOKEN}`
                     },
-                    body: JSON.stringify(productoData) // Solo nombre y descripción
+                    body: JSON.stringify(productoData) // Only name and description
                 });
                 if (!response.ok) {
                     const errorText = await response.text();
@@ -382,11 +489,9 @@ function initProductosCRUD() {
                 }
                 const producto = await response.json();
 
-                // Mostrar todos los campos para edición
-                mostrarTodosLosCamposFormulario();
-                // Cargar proveedores porque el campo ahora está visible para edición
-                await cargarProveedoresEnSelect();
-                
+                mostrarTodosLosCamposFormulario(); // Mostrar todos los campos para edición
+                await cargarProveedoresEnSelect(); // Cargar proveedores porque el campo ahora está visible para edición
+
                 // Rellena el formulario con los datos del producto
                 productoIdInput.value = producto.id;
                 nombreProductoInput.value = producto.nombre;
@@ -398,9 +503,9 @@ function initProductosCRUD() {
                     const calculatedPorcentaje = ((producto.precioVenta / producto.precioCompra) - 1) * 100;
                     porcentajeGananciaInput.value = calculatedPorcentaje.toFixed(2);
                 } else {
-                    porcentajeGananciaInput.value = '0';
+                    porcentajeGananciaInput.value = '20'; // Default to 20% if no data or invalid
                 }
-                
+
                 idProveedorProductoSelect.value = producto.proveedorPrincipal ? producto.proveedorPrincipal.id : '';
 
                 modalTitle.textContent = 'Editar Producto del Catálogo';
@@ -415,55 +520,12 @@ function initProductosCRUD() {
         }
     });
 
-    // Event listener para mostrar detalles de un producto (al hacer clic en la fila)
-    productosTableBody.addEventListener('click', async (event) => {
-        // Asegúrate de que no se haga clic en los botones de editar/eliminar dentro de la fila
-        if (event.target.closest('.btn-editar-producto') || event.target.closest('.btn-eliminar-producto')) {
-            return; // Si se hizo clic en un botón, no activar el detalle de la fila
-        }
-
-        const row = event.target.closest('.clickable-row');
-        if (row) {
-            const id = row.dataset.id;
-            try {
-                const response = await fetch(`${API_BASE_URL}/${id}`, {
-                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
-                });
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`Error al obtener detalles del producto: ${response.status} - ${errorText}`);
-                }
-                const producto = await response.json();
-
-                // Rellenar el modal de detalle
-                productoDetalleModalLabel.textContent = `Detalles de ${producto.nombre}`; // Cambiado de productoDetalleModalTitle
-                detalleNombre.textContent = producto.nombre;
-                detalleStock.textContent = producto.stock;
-                detalleDescripcion.textContent = producto.descripcion || 'N/A';
-                detallePrecioCompra.textContent = producto.precioCompra ? priceFormatter.format(producto.precioCompra) : 'N/A';
-                detallePrecioVenta.textContent = producto.precioVenta ? priceFormatter.format(producto.precioVenta) : 'N/A';
-                detalleProveedor.textContent = producto.proveedorPrincipal ? producto.proveedorPrincipal.nombre : 'N/A';
-                // REMOVIDO: detalleEstado.textContent = producto.activo ? 'Activo' : 'Inactivo';
-
-                const productoDetalleModal = getProductoDetalleModalInstance();
-                if (productoDetalleModal) {
-                    productoDetalleModal.show();
-                }
-            } catch (error) {
-                console.error('Error al cargar detalles del producto:', error);
-                showToast(`Error al cargar detalles del producto: ${error.message}`, 'danger');
-            }
-        }
-    });
-
     // Event listener para ELIMINAR FÍSICAMENTE un producto
     productosTableBody.addEventListener('click', async (event) => {
         if (event.target.classList.contains('btn-eliminar-producto') || event.target.closest('.btn-eliminar-producto')) {
             const id = event.target.dataset.id || event.target.closest('.btn-eliminar-producto').dataset.id;
-            // Confirmación para eliminación PERMANENTE
             if (confirm(`¿Estás seguro de que quieres ELIMINAR PERMANENTEMENTE el producto con ID ${id}? Esta acción no se puede deshacer y eliminará también los registros relacionados (ej. en detalles de pedidos).`)) {
                 try {
-                    // Se realiza una solicitud DELETE
                     const response = await fetch(`${API_BASE_URL}/${id}`, {
                         method: 'DELETE',
                         headers: {
@@ -476,14 +538,13 @@ function initProductosCRUD() {
                         throw new Error(`Error al eliminar producto: ${response.status} - ${errorText}`);
                     }
                     showToast('Producto eliminado permanentemente.', 'success');
-                    cargarProductos(); // Recarga la tabla para reflejar la eliminación
+                    cargarProductos();
                 } catch (error) {
                     console.error('Error al eliminar producto:', error);
                     let errorMessage = 'Error al eliminar producto.';
                     if (error.message.includes('401')) {
                         errorMessage += ' No autorizado. Por favor, inicie sesión.';
                     } else if (error.message.includes('foreign key constraint fails') || error.message.includes('violates foreign key constraint')) {
-                        // Mensaje más específico si el backend devuelve este tipo de error
                         errorMessage += ' No se pudo eliminar el producto debido a referencias existentes en otros registros (ej. ventas). Considere primero eliminar esos registros o desvincular el producto.';
                     }
                     showToast(errorMessage, 'danger');
@@ -491,6 +552,28 @@ function initProductosCRUD() {
             }
         }
     });
+
+    // Event listener para mostrar detalles de un producto (al hacer clic en la fila)
+    productosTableBody.addEventListener('click', async (event) => {
+        // Asegúrate de que no se haga clic en los botones de editar/eliminar dentro de la fila
+        if (event.target.closest('.btn-editar-producto') || event.target.closest('.btn-eliminar-producto')) {
+            return; // Si se hizo clic en un botón, no activar el detalle de la fila
+        }
+
+        const row = event.target.closest('.clickable-row');
+        if (row) {
+            const id = row.dataset.id;
+            showProductDetail(id); // Llama a la nueva función para mostrar el detalle
+        }
+    });
+
+    // Event listener para el botón de "Volver a la Lista de Productos"
+    btnBackToProductList.addEventListener('click', () => {
+        productDetailSection.classList.add('d-none');
+        productosListSection.classList.remove('d-none');
+        cargarProductos(); // Opcional: recargar productos por si hubo cambios mientras se veía el detalle
+    });
+
 
     // --- NUEVOS EVENT LISTENERS PARA FILTRO Y BÚSQUEDA ---
     searchProductoInput.addEventListener('input', aplicarFiltrosYBusqueda);

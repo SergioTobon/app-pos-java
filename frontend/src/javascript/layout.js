@@ -57,27 +57,19 @@ function generateNavbarHTML() {
     return `
         <nav class="navbar navbar-expand-lg navbar-light bg-light py-4 px-4 border-bottom">
             <div class="d-flex align-items-center">
-                <i class="fas fa-align-left primary-text fs-4 me-3" id="menu-toggle"></i>
                 <h2 class="fs-2 m-0" id="navbar-title">Dashboard</h2>
             </div>
 
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
-                data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent"
-                aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-
-            <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+            <div class="collapse navbar-collapse justify-content-end" id="navbarSupportedContent">
+                <ul class="navbar-nav mb-2 mb-lg-0">
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle second-text fw-bold" href="#" id="navbarDropdown"
                             role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-person-circle me-2"></i>Usuario Ejemplo
                         </a>
-                        <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                            <li><a class="dropdown-item" href="#">Perfil</a></li>
-                            <li><a class="dropdown-item" href="#">Configuración</a></li>
-                            <li><a class="dropdown-item" href="#">Cerrar Sesión</a></li>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-person-lines-fill me-1"></i> Perfil</a></li>
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-box-arrow-right me-1"></i> Cerrar Sesión</a></li>
                         </ul>
                     </li>
                 </ul>
@@ -106,7 +98,7 @@ function injectLayout(pageTitle = "Dashboard", pageContentHTML = "", callback = 
     pageContentWrapperDiv.id = 'page-content-wrapper';
 
     // Añadir el navbar al page-content-wrapper
-    pageContentWrapperDiv.innerHTML = generateNavbarHTML();
+    pageContentWrapperDiv.innerHTML += generateNavbarHTML();
 
     // Obtener la referencia al div del navbar y añadir el título
     const navbarTitleElement = pageContentWrapperDiv.querySelector('#navbar-title');
@@ -117,7 +109,6 @@ function injectLayout(pageTitle = "Dashboard", pageContentHTML = "", callback = 
     // Crear un div para el contenido específico de la página
     const pageSpecificContentDiv = document.createElement('div');
     pageSpecificContentDiv.className = 'container-fluid px-4'; // Añadir clases de Bootstrap para padding
-    // Set the innerHTML of pageSpecificContentDiv to the provided pageContentHTML
     pageSpecificContentDiv.innerHTML = pageContentHTML;
 
     // Finalmente, añadir el contenido específico de la página DENTRO de page-content-wrapper, después del navbar
@@ -128,15 +119,9 @@ function injectLayout(pageTitle = "Dashboard", pageContentHTML = "", callback = 
     document.body.appendChild(wrapperDiv); // Añadir el wrapper al body
     wrapperDiv.appendChild(pageContentWrapperDiv); // Insertar el pageContentWrapperDiv en el wrapper
 
-    // Lógica para el toggle del sidebar (anteriormente en script.js)
-    const el = document.getElementById('wrapper');
-    const toggleButton = document.getElementById('menu-toggle');
-
-    if (toggleButton && el) {
-        toggleButton.onclick = function () {
-            el.classList.toggle('toggled');
-        };
-    }
+    // --- MODIFICACIÓN IMPORTANTE: Eliminada la lógica del toggle del sidebar ---
+    // La sección que manejaba el 'menu-toggle' ha sido eliminada.
+    // Esto asegura que el sidebar permanezca siempre visible por defecto.
 
     // Activar el enlace del sidebar correspondiente a la página actual
     const currentPath = window.location.pathname;

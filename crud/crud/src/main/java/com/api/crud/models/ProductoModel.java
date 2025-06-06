@@ -23,6 +23,9 @@ public class ProductoModel {
     @Column(length = 255, name = "descripcion")
     private String descripcion;
 
+    @Column(name = "porcentaje_ganancia") // Anotación para mapear a la columna de la DB
+    private Double porcentajeGanancia;
+
 
     @Column(name = "precio_venta")
     private Double precioVenta;
@@ -87,6 +90,14 @@ public class ProductoModel {
 
     public void setPrecioCompra(Double precioCompra) {
         this.precioCompra = precioCompra;
+    }
+
+    public Double getPorcentajeGanancia() {
+        return porcentajeGanancia;
+    }
+
+    public void setPorcentajeGanancia(Double porcentajeGanancia) {
+        this.porcentajeGanancia = porcentajeGanancia;
     }
 
     public void addProveedor(ProveedorModel proveedor, Double precioCompra) {

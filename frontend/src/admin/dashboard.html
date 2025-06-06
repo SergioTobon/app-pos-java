@@ -117,13 +117,12 @@
             </div>
 
             <div class="d-flex justify-content-between align-items-center mb-4 mt-5">
-                <h3 class="fs-4 mb-0">Gestión de Compras</h3>
-            </div>
+                <h3 class="fs-4 mb-0">Lista de Compras Recientes</h3>
+                </div>
 
             <div class="row mb-4">
                 <div class="col">
                     <div class="bg-white rounded shadow-sm p-4">
-                        <h3 class="fs-5 mb-3">Lista de Compras Recientes</h3>
                         <div class="table-responsive">
                             <table class="table table-striped table-hover align-middle">
                                 <thead>
@@ -140,7 +139,7 @@
                             </table>
                         </div>
                         <div id="noComprasMessage" class="alert alert-info text-center mt-3 d-none" role="alert">
-                            No hay compras registradas. ¡Agrega una para empezar!
+                            No hay compras registradas.
                         </div>
                     </div>
                 </div>
@@ -159,7 +158,7 @@
 
                                 <div class="mb-3">
                                     <label for="idProveedorCompraSelect" class="form-label">Proveedor</label>
-                                    <select class="form-select" id="idProveedorCompraSelect" required>
+                                    <select class="form-select" id="idProveedorCompraSelect" required disabled>
                                         <option value="">Seleccione un proveedor</option>
                                     </select>
                                 </div>
@@ -167,15 +166,11 @@
                                 <h4>Productos de la Compra</h4>
                                 <div id="productosCompraContainer">
                                     </div>
-                                <button type="button" class="btn btn-success btn-sm mb-3" id="btnAgregarProductoACart">
-                                    <i class="bi bi-plus-circle"></i> Añadir Otro Producto
-                                </button>
                                 <div class="text-end mt-3">
                                     <strong>Total Compra: </strong> <span id="totalCompraDisplay">0.00</span>
                                 </div>
 
-                                <button type="submit" class="btn btn-primary w-100 mt-3" id="btnGuardarCompra">Guardar Compra</button>
-                            </form>
+                                </form>
                         </div>
                     </div>
                 </div>
@@ -187,33 +182,26 @@
     <div class="toast-container position-fixed bottom-0 end-0 p-3"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <script src="/src/javascript/layout.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/src/javascript/layout.js"></script>
     <script src="/src/javascript/api/compras/comprasCrud.js"></script>
     <script src="/src/javascript/api/dashboard/dashboard.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const pageContentDiv = document.getElementById('page-specific-content');
-            // Asegúrate de que `injectLayout` se encarga de reemplazar el contenido de `#page-specific-content`
-            // o si es una plantilla, que el dashboard se carga en el lugar correcto.
             injectLayout('Dashboard de Ventas y Compras', pageContentDiv.innerHTML);
 
-            // Llamar a la función principal de tu script de compras
-            // y luego a las funciones del dashboard, asegurando que se ejecuten después del layout
-            // y que Chart.js esté cargado.
+            // Las funciones de compras y dashboard se inicializan aquí.
+            // Asegúrate de que los IDs correspondientes existan en el DOM después de injectLayout.
             if (typeof initComprasCRUD === 'function') {
                 initComprasCRUD();
             } else {
                 console.error("Error: La función initComprasCRUD no está definida o no es global.");
             }
 
-            // Estas funciones DEBEN ejecutarse después de que el DOM esté completamente cargado
-            // y Chart.js esté disponible.
             cargarDashboardMetrics();
             renderTopSellingProductsChart();
             renderMostFrequentClientsChart();
-
-            // Considera si necesitas recargar las métricas y gráficos después de una nueva compra,
-            // si es así, llama a estas funciones desde tu lógica de `comprasCrud.js` cuando se guarde una compra.
         });
     </script>
 </body>
